@@ -864,13 +864,23 @@ export default function DemoPage({ params }: { params: { type: string } }) {
                 >
                   <ChevronLeft size={14} />
                 </button>
-                <button
-                  disabled={step === steps.length - 1}
-                  onClick={() => setStep(s => s + 1)}
-                  className={`h-8 px-3 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${accentSolid}`}
-                >
-                  Next <ChevronRight size={13} />
-                </button>
+                {step === steps.length - 1 ? (
+                  <>
+                    <a href="https://saiworks.nncs.in" target="_blank" rel="noopener noreferrer" className="h-8 px-3 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-white/8 hover:border-white/15 transition-colors">
+                      Portfolio ↗
+                    </a>
+                    <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" target="_blank" rel="noopener noreferrer" className={`h-8 px-3 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-white transition-colors ${accentSolid}`}>
+                      Sign up <ArrowRight size={11} />
+                    </a>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setStep(s => s + 1)}
+                    className={`h-8 px-3 flex items-center gap-1.5 rounded-lg text-xs font-semibold text-white transition-colors ${accentSolid}`}
+                  >
+                    Next <ChevronRight size={13} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -900,9 +910,14 @@ export default function DemoPage({ params }: { params: { type: string } }) {
             Next <ChevronRight size={15} />
           </button>
         ) : (
-          <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-emerald-400">
-            Start free <ArrowRight size={15} />
-          </a>
+          <div className="flex items-center gap-2">
+            <a href="https://saiworks.nncs.in" target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+              Portfolio ↗
+            </a>
+            <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
+              Sign up <ArrowRight size={13} />
+            </a>
+          </div>
         )}
       </div>
     </div>
