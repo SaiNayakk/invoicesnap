@@ -830,10 +830,13 @@ export default function DemoPage({ params }: { params: { type: string } }) {
           })}
 
           <div className="mt-auto pt-4 border-t border-white/7 space-y-2">
-            <Link href="/auth?tab=signup" className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-semibold text-white ${accentSolid} transition-colors`}>
+            <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" target="_blank" rel="noopener noreferrer" className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-semibold text-white ${accentSolid} transition-colors`}>
               Get Started <ArrowRight size={11} />
-            </Link>
-            <Link href="/demo" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 transition-colors border border-white/7">
+            </a>
+            <a href="https://saiworks.nncs.in" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs text-zinc-500 hover:text-zinc-300 transition-colors border border-white/7">
+              View portfolio ↗
+            </a>
+            <Link href="/demo" className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
               ← Back to demos
             </Link>
           </div>
@@ -897,9 +900,9 @@ export default function DemoPage({ params }: { params: { type: string } }) {
             Next <ChevronRight size={15} />
           </button>
         ) : (
-          <Link href="/auth?tab=signup" className="flex items-center gap-1.5 text-sm font-medium text-emerald-400">
+          <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-emerald-400">
             Start free <ArrowRight size={15} />
-          </Link>
+          </a>
         )}
       </div>
     </div>
