@@ -10,6 +10,7 @@ import {
   FileText,
   Users,
   Bell,
+  Play,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
@@ -131,6 +132,13 @@ export default function LandingPage() {
             <Link href="#features" className="hover:text-zinc-100 transition-colors">Features</Link>
             <Link href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing</Link>
             <Link href="#testimonials" className="hover:text-zinc-100 transition-colors">Reviews</Link>
+            <Link
+              href="/demo"
+              className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-1.5 rounded-lg text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/15 transition-colors"
+            >
+              <Zap size={13} className="fill-emerald-400" />
+              Live Demo
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
@@ -177,7 +185,10 @@ export default function LandingPage() {
               </Link>
             </Button>
             <Button size="xl" variant="outline" className="w-full sm:w-auto" asChild>
-              <Link href="#features">See how it works</Link>
+              <Link href="/demo">
+                <Play size={15} />
+                Try live demo
+              </Link>
             </Button>
           </div>
 
@@ -373,6 +384,55 @@ export default function LandingPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Banner */}
+      <section className="py-20 px-5 border-t border-white/7">
+        <div className="mx-auto max-w-4xl">
+          <div className="relative rounded-3xl border border-emerald-500/20 bg-[#111113] overflow-hidden p-10 sm:p-14 text-center">
+            {/* corner glows */}
+            <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 70%)' }} />
+            <div className="pointer-events-none absolute -bottom-24 -left-24 w-72 h-72 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)' }} />
+
+            <div className="relative">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Play size={16} className="text-emerald-400 fill-emerald-400" />
+                <span className="text-xs font-medium uppercase tracking-widest text-emerald-400/70">
+                  Interactive Demo
+                </span>
+              </div>
+
+              <h2 className="font-display text-3xl sm:text-4xl font-semibold text-zinc-50 mb-4">
+                See it live in 30 seconds
+              </h2>
+              <p className="text-sm text-zinc-400 mb-8 max-w-md mx-auto leading-relaxed">
+                Two guided walkthroughs — a product tour for freelancers and a technical deep-dive for developers.
+                Pre-filled with real data. No account required.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button size="lg" className="btn-glow w-full sm:w-auto" asChild>
+                  <Link href="/demo/product">
+                    <Play size={15} className="fill-white" />
+                    Start Product Tour
+                    <ArrowRight size={15} />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" className="w-full sm:w-auto" asChild>
+                  <Link href="/demo/technical">
+                    Technical Deep Dive
+                  </Link>
+                </Button>
+              </div>
+
+              <p className="text-xs text-zinc-700 mt-6">
+                Fully interactive · No login required · Pre-seeded data
+              </p>
+            </div>
           </div>
         </div>
       </section>
