@@ -22,7 +22,23 @@ const PRODUCT_STEPS = [
 
 export default function DemoLandingPage() {
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center px-6 py-16">
+    <div className="min-h-screen bg-[#09090b] flex flex-col">
+      {/* Nav */}
+      <nav className="sticky top-0 z-10 border-b border-white/7 bg-[#09090b]/90 backdrop-blur-md px-6 h-12 flex items-center justify-between">
+        <a href="https://invoicesnap-saiworks.nncs.in/auth" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+          ← Sign in
+        </a>
+        <div className="flex items-center gap-3">
+          <a href="https://saiworks.nncs.in" target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+            saiworks.nncs.in ↗
+          </a>
+          <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
+            Get started
+          </a>
+        </div>
+      </nav>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
       {/* Logo */}
       <div className="mb-10">
         <Logo />
@@ -111,6 +127,7 @@ export default function DemoLandingPage() {
         <Zap className="h-3 w-3" />
         Fully interactive · No account required · Pre-seeded data
       </p>
+      </div>
     </div>
   );
 }
