@@ -45,9 +45,9 @@ const INVOICES = [
 ];
 
 const CLIENTS = [
-  { name: "Priya Photography",  gst: "29AADCP7742R1Z5", phone: "+91 98765 43210", invoices: 8,  total: 3,84000 },
-  { name: "Vikram Events",      gst: "27AAACV2345F1ZD", phone: "+91 97654 32109", invoices: 12, total: 8,64000 },
-  { name: "Sneha Reddy",        gst: null,               phone: "+91 96543 21098", invoices: 5,  total: 1,48000 },
+  { name: "Priya Photography",  gst: "29AADCP7742R1Z5", phone: "+91 98765 43210", invoices: 8,  total: 384000 },
+  { name: "Vikram Events",      gst: "27AAACV2345F1ZD", phone: "+91 97654 32109", invoices: 12, total: 864000 },
+  { name: "Sneha Reddy",        gst: null,               phone: "+91 96543 21098", invoices: 5,  total: 148000 },
   { name: "Meera Tutoring",     gst: null,               phone: "+91 95432 10987", invoices: 3,  total: 54000  },
 ];
 
