@@ -162,10 +162,21 @@ function PanelCreateInvoice() {
               </div>
               <button
                 onClick={() => setGst(!gst)}
-                className={`w-10 h-5.5 rounded-full transition-colors relative flex items-center px-0.5 ${gst ? "bg-emerald-500" : "bg-zinc-700"}`}
-                style={{ height: "22px" }}
+                style={{
+                  width: 40, height: 22, borderRadius: 11, padding: "0 3px",
+                  backgroundColor: gst ? "#10b981" : "#3f3f46",
+                  display: "flex", alignItems: "center",
+                  transition: "background-color 150ms ease",
+                  border: "none", cursor: "pointer",
+                }}
               >
-                <span className={`w-4 h-4 rounded-full bg-white transition-transform shadow ${gst ? "translate-x-4.5" : ""}`} style={{ transform: gst ? "translateX(18px)" : "translateX(0)" }} />
+                <span style={{
+                  width: 16, height: 16, borderRadius: "50%",
+                  backgroundColor: "#fff",
+                  transform: gst ? "translateX(18px)" : "translateX(0)",
+                  transition: "transform 150ms ease",
+                  display: "block",
+                }} />
               </button>
             </div>
           </div>
@@ -203,7 +214,18 @@ function PanelCreateInvoice() {
 }
 
 function PanelWhatsApp() {
-  const [sent, setSent] = useState(false);
+  const [sent, setSent]       = useState(false);
+  const [copied, setCopied]   = useState(false);
+  const payUrl = "https://invoicesnap-saiworks.nncs.in/pay/demo";
+  const upiLink = "upi://pay?pa=sai34nayak@okaxis&pn=Rahul+Photography&am=62540.00&cu=INR&tn=Invoice+INV-2025-043";
+
+  function copyLink() {
+    navigator.clipboard.writeText(payUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div className="h-full overflow-auto p-5 flex flex-col gap-5">
       {/* Invoice card */}
@@ -223,27 +245,30 @@ function PanelWhatsApp() {
 
       {/* Actions */}
       <div className="grid grid-cols-3 gap-3">
-        {[
-          { icon: FileText,      label: "Download PDF", color: "text-zinc-400 bg-zinc-800 border-white/8" },
-          { icon: MessageCircle, label: "Send WhatsApp", color: "text-white bg-[#25D366] border-[#20bd5a]/40", action: true },
-          { icon: Download,      label: "Copy Link",    color: "text-zinc-400 bg-zinc-800 border-white/8" },
-        ].map(({ icon: Icon, label, color, action }) => (
-          <button
-            key={label}
-            onClick={action ? () => setSent(true) : undefined}
-            className={`flex flex-col items-center justify-center gap-2 py-4 rounded-xl border text-xs font-medium transition-all active:scale-95 ${color} ${action && !sent ? "ring-2 ring-[#25D366]/40 shadow-lg shadow-[#25D366]/10" : ""}`}
-          >
-            <Icon size={18} />
-            {action && sent ? "Sent ✓" : label}
-          </button>
-        ))}
+        <a href="/api/demo/pdf" target="_blank" rel="noopener noreferrer"
+          className="flex flex-col items-center justify-center gap-2 py-4 rounded-xl border text-xs font-medium text-zinc-400 bg-zinc-800 border-white/8 hover:bg-zinc-700 transition-all active:scale-95">
+          <FileText size={18} />
+          Download PDF
+        </a>
+        <button
+          onClick={() => setSent(true)}
+          className={`flex flex-col items-center justify-center gap-2 py-4 rounded-xl border text-xs font-medium text-white bg-[#25D366] border-[#20bd5a]/40 transition-all active:scale-95 ${!sent ? "ring-2 ring-[#25D366]/40 shadow-lg shadow-[#25D366]/10" : ""}`}
+        >
+          <MessageCircle size={18} />
+          {sent ? "Sent ✓" : "Send WhatsApp"}
+        </button>
+        <button
+          onClick={copyLink}
+          className="flex flex-col items-center justify-center gap-2 py-4 rounded-xl border text-xs font-medium text-zinc-400 bg-zinc-800 border-white/8 hover:bg-zinc-700 transition-all active:scale-95">
+          <Copy size={18} />
+          {copied ? "Copied!" : "Copy Link"}
+        </button>
       </div>
 
       {/* WhatsApp preview */}
       <div className="rounded-xl border border-white/8 bg-[#111113] p-4">
         <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">WhatsApp Preview</p>
         <div className="rounded-xl bg-[#0a1a0e] border border-[#25D366]/15 p-4 space-y-3">
-          {/* Header */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center text-sm font-bold text-emerald-400">IS</div>
             <div>
@@ -251,16 +276,16 @@ function PanelWhatsApp() {
               <p className="text-xs text-zinc-500">Business Account</p>
             </div>
           </div>
-          {/* Message bubble */}
           <div className="bg-[#1a2f1a] rounded-xl p-3 text-xs text-zinc-300 space-y-1.5 leading-relaxed">
             <p>Hello Priya! 👋</p>
             <p>Your invoice <span className="text-emerald-400 font-medium">INV-2025-043</span> for <span className="font-medium">₹62,540</span> is ready.</p>
             <p className="text-zinc-500">Due: 15 May 2025</p>
             <div className="mt-2 pt-2 border-t border-white/10">
-              <div className="flex items-center gap-2 text-[#25D366] font-medium">
+              <a href={payUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[#25D366] font-medium hover:underline">
                 <ExternalLink size={11} />
-                Pay via UPI → invoicesnap.../pay/INV-043
-              </div>
+                Pay via UPI → invoicesnap.../pay/demo ↗
+              </a>
             </div>
           </div>
           {sent && (
@@ -269,6 +294,22 @@ function PanelWhatsApp() {
               Message delivered to +91 98765 43210
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Customer pay page preview */}
+      <div className="rounded-xl border border-white/8 bg-[#111113] p-4">
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">What Priya sees → /pay/demo</p>
+        <div className="flex flex-col items-center gap-3 py-2">
+          <p className="text-xs text-zinc-500">Scan to pay · sai34nayak@okaxis</p>
+          <div className="bg-white p-2.5 rounded-xl">
+            <QRCodeSVG value={upiLink} size={120} />
+          </div>
+          <p className="text-2xl font-bold text-zinc-50">₹62,540</p>
+          <a href={payUrl} target="_blank" rel="noopener noreferrer"
+            className="w-full max-w-xs flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors">
+            Open live demo pay page ↗
+          </a>
         </div>
       </div>
     </div>
