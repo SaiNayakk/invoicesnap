@@ -6,7 +6,7 @@ const TECH_STEPS = [
   "Next.js 16 App Router architecture",
   "PocketBase data model & auth",
   "PDF generation with PDFKit",
-  "Razorpay payment links & webhooks",
+  "UPI QR payment flow — no gateway",
   "WhatsApp Business Cloud API",
   "Live API walkthrough",
 ];
@@ -15,7 +15,7 @@ const PRODUCT_STEPS = [
   "Dashboard overview & key metrics",
   "Create a GST invoice in 2 minutes",
   "One-tap WhatsApp send with PDF",
-  "Razorpay payment link flow",
+  "UPI payment — customer taps I've Paid",
   "Track paid / sent / overdue",
   "Client directory & auto-fill",
 ];
