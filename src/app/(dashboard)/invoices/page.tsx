@@ -15,6 +15,8 @@ import {
   Trash2,
   ArrowUpDown,
   Loader2,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +47,17 @@ async function sendEmail(invoiceId: string) {
   else alert("Email sent ✓");
 }
 
-type InvoiceStatus = "paid" | "sent" | "draft" | "overdue";
+async function confirmPayment(invoiceId: string) {
+  const res = await fetch(`/api/invoices/${invoiceId}/confirm-payment`, { method: "POST" });
+  if (!res.ok) { const d = await res.json(); alert(d.error ?? "Failed"); }
+}
+
+async function rejectPayment(invoiceId: string) {
+  const res = await fetch(`/api/invoices/${invoiceId}/reject-payment`, { method: "POST" });
+  if (!res.ok) { const d = await res.json(); alert(d.error ?? "Failed"); }
+}
+
+type InvoiceStatus = "paid" | "sent" | "draft" | "overdue" | "payment_pending";
 
 type Invoice = {
   id: string;
@@ -80,18 +92,21 @@ const filterTabs = [
 ] as const;
 
 const statusLabels: Record<InvoiceStatus, string> = {
-  paid: "Paid",
-  sent: "Sent",
-  draft: "Draft",
-  overdue: "Overdue",
+  paid:            "Paid",
+  sent:            "Sent",
+  draft:           "Draft",
+  overdue:         "Overdue",
+  payment_pending: "Awaiting Confirmation",
 };
 
 export default function InvoicesPage() {
   const [activeFilter, setActiveFilter] = useState<"all" | InvoiceStatus>("all");
   const [search, setSearch] = useState("");
   const [activeMenu, setActiveMenu]   = useState<string | null>(null);
-  const [loadingPDF, setLoadingPDF]   = useState<string | null>(null);
-  const [loadingWA,  setLoadingWA]    = useState<string | null>(null);
+  const [loadingPDF,     setLoadingPDF]     = useState<string | null>(null);
+  const [loadingWA,      setLoadingWA]      = useState<string | null>(null);
+  const [loadingConfirm, setLoadingConfirm] = useState<string | null>(null);
+  const [localStatuses,  setLocalStatuses]  = useState<Record<string, InvoiceStatus>>({});
 
   const filtered = invoices.filter((inv) => {
     const matchesFilter = activeFilter === "all" || inv.status === activeFilter;
@@ -179,10 +194,12 @@ export default function InvoicesPage() {
               No invoices found
             </div>
           ) : (
-            filtered.map((inv) => (
+            filtered.map((inv) => {
+              const effectiveStatus = (localStatuses[inv.id] ?? inv.status) as InvoiceStatus;
+              return (
               <div
                 key={inv.id}
-                className="group grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-5 py-3.5 hover:bg-white/2 transition-colors"
+                className={`group grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center px-5 py-3.5 hover:bg-white/2 transition-colors ${effectiveStatus === "payment_pending" ? "bg-blue-500/3" : ""}`}
               >
                 {/* Client */}
                 <div className="flex items-center gap-3 min-w-0">
@@ -201,8 +218,8 @@ export default function InvoicesPage() {
                 </div>
 
                 {/* Status */}
-                <Badge variant={inv.status}>
-                  {statusLabels[inv.status]}
+                <Badge variant={effectiveStatus}>
+                  {statusLabels[effectiveStatus]}
                 </Badge>
 
                 {/* Due date */}
@@ -212,22 +229,54 @@ export default function InvoicesPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 relative">
-                  {inv.status !== "paid" && inv.status !== "draft" && (
-                    <button
-                      onClick={() => { setLoadingWA(inv.id); sendWhatsApp(inv.id).finally(() => setLoadingWA(null)); }}
-                      className="h-7 w-7 rounded-md bg-[#25D366]/10 border border-[#25D366]/15 flex items-center justify-center text-[#25D366] hover:bg-[#25D366]/20 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Send on WhatsApp"
-                    >
-                      {loadingWA === inv.id ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
-                    </button>
+                  {effectiveStatus === "payment_pending" ? (
+                    <>
+                      <button
+                        title="Confirm payment received"
+                        disabled={loadingConfirm === inv.id}
+                        onClick={() => {
+                          setLoadingConfirm(inv.id);
+                          confirmPayment(inv.id).then(() => {
+                            setLocalStatuses((s) => ({ ...s, [inv.id]: "paid" }));
+                          }).finally(() => setLoadingConfirm(null));
+                        }}
+                        className="h-7 px-2.5 rounded-md bg-emerald-500/12 border border-emerald-500/20 flex items-center gap-1.5 text-xs text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                      >
+                        {loadingConfirm === inv.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                        Confirm
+                      </button>
+                      <button
+                        title="Reject — payment not received"
+                        onClick={() => {
+                          rejectPayment(inv.id).then(() => {
+                            setLocalStatuses((s) => ({ ...s, [inv.id]: "sent" }));
+                          });
+                        }}
+                        className="h-7 w-7 rounded-md border border-white/8 bg-zinc-900/40 flex items-center justify-center text-zinc-500 hover:text-red-400 hover:border-red-500/20 transition-colors"
+                      >
+                        <XCircle size={13} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {effectiveStatus !== "paid" && effectiveStatus !== "draft" && (
+                        <button
+                          onClick={() => { setLoadingWA(inv.id); sendWhatsApp(inv.id).finally(() => setLoadingWA(null)); }}
+                          className="h-7 w-7 rounded-md bg-[#25D366]/10 border border-[#25D366]/15 flex items-center justify-center text-[#25D366] hover:bg-[#25D366]/20 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Send on WhatsApp"
+                        >
+                          {loadingWA === inv.id ? <Loader2 size={13} className="animate-spin" /> : <MessageCircle size={13} />}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => { setLoadingPDF(inv.id); downloadPDF(inv.id, inv.number).finally(() => setLoadingPDF(null)); }}
+                        className="h-7 w-7 rounded-md border border-white/8 bg-zinc-900/40 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Download PDF"
+                      >
+                        {loadingPDF === inv.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                      </button>
+                    </>
                   )}
-                  <button
-                    onClick={() => { setLoadingPDF(inv.id); downloadPDF(inv.id, inv.number).finally(() => setLoadingPDF(null)); }}
-                    className="h-7 w-7 rounded-md border border-white/8 bg-zinc-900/40 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Download PDF"
-                  >
-                    {loadingPDF === inv.id ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-                  </button>
                   <button
                     className="h-7 w-7 rounded-md border border-white/8 bg-zinc-900/40 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors"
                     onClick={() => setActiveMenu(activeMenu === inv.id ? null : inv.id)}
@@ -255,7 +304,8 @@ export default function InvoicesPage() {
                   )}
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

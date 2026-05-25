@@ -7,11 +7,12 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        paid: "bg-emerald-500/12 text-emerald-400 border border-emerald-500/20",
-        sent: "bg-amber-500/12 text-amber-400 border border-amber-500/20",
-        draft: "bg-zinc-500/12 text-zinc-400 border border-zinc-500/20",
-        overdue: "bg-red-500/12 text-red-400 border border-red-500/20",
-        default: "bg-zinc-800 text-zinc-300 border border-zinc-700",
+        paid:            "bg-emerald-500/12 text-emerald-400 border border-emerald-500/20",
+        sent:            "bg-amber-500/12 text-amber-400 border border-amber-500/20",
+        draft:           "bg-zinc-500/12 text-zinc-400 border border-zinc-500/20",
+        overdue:         "bg-red-500/12 text-red-400 border border-red-500/20",
+        payment_pending: "bg-blue-500/12 text-blue-400 border border-blue-500/20",
+        default:         "bg-zinc-800 text-zinc-300 border border-zinc-700",
       },
     },
     defaultVariants: { variant: "default" },
@@ -24,11 +25,12 @@ export interface BadgeProps
 
 function Badge({ className, variant, children, ...props }: BadgeProps) {
   const dotColors: Record<string, string> = {
-    paid: "bg-emerald-400",
-    sent: "bg-amber-400",
-    draft: "bg-zinc-400",
-    overdue: "bg-red-400",
-    default: "bg-zinc-400",
+    paid:            "bg-emerald-400",
+    sent:            "bg-amber-400",
+    draft:           "bg-zinc-400",
+    overdue:         "bg-red-400",
+    payment_pending: "bg-blue-400",
+    default:         "bg-zinc-400",
   };
   const dot = dotColors[variant ?? "default"];
 

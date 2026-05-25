@@ -102,10 +102,11 @@ const recentInvoices = [
 ];
 
 const statusLabels: Record<string, string> = {
-  paid: "Paid",
-  sent: "Sent",
-  draft: "Draft",
-  overdue: "Overdue",
+  paid:            "Paid",
+  sent:            "Sent",
+  draft:           "Draft",
+  overdue:         "Overdue",
+  payment_pending: "Awaiting Confirmation",
 };
 
 export default function DashboardPage() {
