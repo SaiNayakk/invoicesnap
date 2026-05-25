@@ -23,9 +23,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
     const phone = String(client.phone).replace(/\D/g, "");
 
-    const paymentLine = invoice.razorpay_payment_link_url
-      ? `\n\n💳 *Pay online:* ${invoice.razorpay_payment_link_url}`
-      : "";
+    const paymentLine = `\n\n💳 *Pay via UPI:* ${process.env.NEXT_PUBLIC_APP_URL}/pay/${id}`;
 
     const messageBody =
       `Hello! Here is your invoice from *${userRecord.business_name || "Your Business"}*.\n\n` +

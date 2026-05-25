@@ -13,8 +13,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
     const invoice = await pb.collection("invoices").getOne(id);
     if (invoice.user !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${id}`;
-    return NextResponse.json({ url });
+    await pb.collection("invoices").update(id, {
+      status:  "paid",
+      paid_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Server error";
     return NextResponse.json({ error: message }, { status: 500 });
