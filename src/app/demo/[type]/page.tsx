@@ -6,8 +6,9 @@ import {
   ChevronLeft, ChevronRight, X, Check, MessageCircle, FileText,
   IndianRupee, AlertCircle, CheckCircle2, Clock, TrendingUp, Plus,
   Users, BarChart3, ArrowRight, Zap, Database, Code2, Globe,
-  Webhook, Terminal, ExternalLink, Copy, Download,
+  Webhook, Terminal, ExternalLink, Copy, Download, Smartphone, XCircle,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,13 +18,14 @@ function formatCurrency(n: number) {
   return "₹" + n.toLocaleString("en-IN");
 }
 
-type InvoiceStatus = "paid" | "sent" | "draft" | "overdue";
+type InvoiceStatus = "paid" | "sent" | "draft" | "overdue" | "payment_pending";
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string; border: string }> = {
-  paid:    { label: "Paid",    color: "text-emerald-400", bg: "bg-emerald-500/12", border: "border-emerald-500/20" },
-  sent:    { label: "Sent",    color: "text-amber-400",   bg: "bg-amber-500/12",   border: "border-amber-500/20"   },
-  draft:   { label: "Draft",   color: "text-zinc-400",    bg: "bg-zinc-700/30",    border: "border-zinc-600/30"    },
-  overdue: { label: "Overdue", color: "text-red-400",     bg: "bg-red-500/12",     border: "border-red-500/20"     },
+  paid:            { label: "Paid",                color: "text-emerald-400", bg: "bg-emerald-500/12", border: "border-emerald-500/20" },
+  sent:            { label: "Sent",                color: "text-amber-400",   bg: "bg-amber-500/12",   border: "border-amber-500/20"   },
+  draft:           { label: "Draft",               color: "text-zinc-400",    bg: "bg-zinc-700/30",    border: "border-zinc-600/30"    },
+  overdue:         { label: "Overdue",             color: "text-red-400",     bg: "bg-red-500/12",     border: "border-red-500/20"     },
+  payment_pending: { label: "Awaiting Confirm",    color: "text-blue-400",    bg: "bg-blue-500/12",    border: "border-blue-500/20"    },
 };
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
@@ -38,7 +40,7 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
 
 const INVOICES = [
   { id: "1", number: "INV-2025-042", client: "Sneha Reddy",      init: "S", amount: 45000, status: "paid"    as InvoiceStatus, date: "28 Apr", due: "30 Apr" },
-  { id: "2", number: "INV-2025-041", client: "Vikram Events",    init: "V", amount: 72000, status: "sent"    as InvoiceStatus, date: "26 Apr", due: "10 May" },
+  { id: "2", number: "INV-2025-041", client: "Vikram Events",    init: "V", amount: 72000, status: "payment_pending" as InvoiceStatus, date: "26 Apr", due: "10 May" },
   { id: "3", number: "INV-2025-040", client: "Meera Tutoring",   init: "M", amount: 18000, status: "overdue" as InvoiceStatus, date: "15 Apr", due: "25 Apr" },
   { id: "4", number: "INV-2025-039", client: "Arjun Nair Design",init: "A", amount: 38500, status: "sent"    as InvoiceStatus, date: "22 Apr", due: "5 May"  },
   { id: "5", number: "INV-2025-038", client: "Priya Photography",init: "P", amount: 62000, status: "paid"    as InvoiceStatus, date: "18 Apr", due: "22 Apr" },
@@ -257,7 +259,7 @@ function PanelWhatsApp() {
             <div className="mt-2 pt-2 border-t border-white/10">
               <div className="flex items-center gap-2 text-[#25D366] font-medium">
                 <ExternalLink size={11} />
-                Pay ₹62,540 via Razorpay →
+                Pay via UPI → invoicesnap.../pay/INV-043
               </div>
             </div>
           </div>
@@ -275,6 +277,7 @@ function PanelWhatsApp() {
 
 function PanelPaymentTracking() {
   const [highlighted, setHighlighted] = useState<string | null>("2");
+  const [confirmed, setConfirmed] = useState(false);
   return (
     <div className="h-full overflow-auto p-5 space-y-4">
       <div className="flex items-center justify-between">
@@ -286,11 +289,13 @@ function PanelPaymentTracking() {
         </div>
       </div>
       <div className="rounded-xl border border-white/8 bg-[#111113] divide-y divide-white/5">
-        {INVOICES.map(inv => (
+        {INVOICES.map(inv => {
+          const effectiveStatus: InvoiceStatus = inv.id === "2" && confirmed ? "paid" : inv.status;
+          return (
           <div
             key={inv.id}
             onClick={() => setHighlighted(inv.id)}
-            className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors ${highlighted === inv.id ? "bg-emerald-500/5 border-l-2 border-emerald-500" : "hover:bg-white/2"}`}
+            className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors ${effectiveStatus === "payment_pending" ? "bg-blue-500/3" : highlighted === inv.id ? "bg-emerald-500/5 border-l-2 border-emerald-500" : "hover:bg-white/2"}`}
           >
             <div className="w-7 h-7 rounded-full bg-emerald-500/12 border border-emerald-500/15 flex items-center justify-center text-xs font-semibold text-emerald-400 shrink-0">{inv.init}</div>
             <div className="flex-1 min-w-0">
@@ -299,15 +304,28 @@ function PanelPaymentTracking() {
             </div>
             <div className="text-right shrink-0 space-y-0.5">
               <p className="text-sm font-medium text-zinc-200">{formatCurrency(inv.amount)}</p>
-              <StatusBadge status={inv.status} />
+              <StatusBadge status={effectiveStatus} />
             </div>
-            {inv.status !== "paid" && (
+            {effectiveStatus === "payment_pending" ? (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmed(true); }}
+                  className="h-7 px-2 rounded-md bg-emerald-500/12 border border-emerald-500/20 flex items-center gap-1 text-xs text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                >
+                  <CheckCircle2 size={11} /> Confirm
+                </button>
+                <button className="h-7 w-7 rounded-md border border-white/8 flex items-center justify-center text-zinc-500 hover:text-red-400 transition-colors">
+                  <XCircle size={12} />
+                </button>
+              </div>
+            ) : effectiveStatus !== "paid" && (
               <button className="h-7 w-7 rounded-md bg-[#25D366]/12 border border-[#25D366]/20 flex items-center justify-center text-[#25D366] hover:bg-[#25D366]/25 transition-colors shrink-0">
                 <MessageCircle size={12} />
               </button>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
       {/* Summary strip */}
       <div className="grid grid-cols-4 gap-2">
@@ -449,7 +467,7 @@ function PanelTechStack() {
     {
       title: "Integrations", color: "border-amber-500/30 bg-amber-500/5",
       items: [
-        { label: "Razorpay", note: "Payment links + webhook for status sync" },
+        { label: "UPI QR (qrcode.react)", note: "Zero-fee payment flow — no gateway, no per-transaction cost" },
         { label: "WhatsApp Cloud API", note: "Meta Business API for message delivery" },
         { label: "Resend", note: "Transactional email for invoice copies" },
       ],
@@ -488,9 +506,9 @@ function PanelTechStack() {
 
 function PanelDataModel() {
   const collections = [
-    { name: "users",         fields: ["id", "email", "name", "plan: free|pro|business", "created"] },
+    { name: "users",         fields: ["id", "email", "name", "business_name", "upi_id", "plan: free|pro|business", "created"] },
     { name: "clients",       fields: ["id", "user_id (text)", "name", "phone", "gst_number", "email"] },
-    { name: "invoices",      fields: ["id", "user_id", "client_id", "number", "status", "due_date", "subtotal", "gst_amount", "total", "razorpay_link_id", "razorpay_payment_id"] },
+    { name: "invoices",      fields: ["id", "user_id", "client_id", "number", "status: draft|sent|overdue|payment_pending|paid", "due_date", "subtotal", "gst_amount", "total", "paid_at"] },
     { name: "invoice_items", fields: ["id", "invoice_id (text)", "description", "quantity", "rate", "amount"] },
   ];
   return (
@@ -625,50 +643,86 @@ export async function GET(req, { params }) {
   );
 }
 
-function PanelRazorpay() {
-  const webhookCode = `// POST /api/webhooks/razorpay
-export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const sig  = req.headers.get("x-razorpay-signature")!;
+function PanelUPIPayment() {
+  const [paid, setPaid] = useState(false);
+  const upiLink = "upi://pay?pa=sai34nayak@okaxis&pn=Rahul+Photography&am=62540.00&cu=INR&tn=Invoice+INV-2025-043";
+  const apiCode = `// POST /api/pay/[id]/claimed  (public, no auth)
+export async function POST(_req, { params }) {
+  const pb = await createPBAdminClient();
+  const invoice = await pb.collection("invoices").getOne(params.id);
 
-  // Verify HMAC-SHA256 signature
-  const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET!)
-    .update(body).digest("hex");
+  if (!["sent", "overdue"].includes(invoice.status))
+    return Response.json({ error: "Not payable" }, { status: 400 });
 
-  if (sig !== expected)
-    return new Response("Invalid signature", { status: 401 });
+  await pb.collection("invoices").update(params.id, {
+    status: "payment_pending",
+  });
 
-  const event = JSON.parse(body);
+  return Response.json({ success: true });
+}
 
-  if (event.event === "payment.captured") {
-    const { payment } = event.payload;
-    const linkId = payment.entity.invoice_id; // Razorpay Payment Link ID
-
-    const pb = await createPBAdminClient();
-    const inv = await pb.collection("invoices")
-      .getFirstListItem(\`razorpay_link_id = "\${linkId}"\`);
-
-    await pb.collection("invoices").update(inv.id, {
-      status: "paid",
-      razorpay_payment_id: payment.entity.id,
-    });
-  }
-
-  return Response.json({ ok: true });
+// POST /api/invoices/[id]/confirm-payment  (auth required)
+export async function POST(_req, { params }) {
+  const pb = await createPBClient(); // uses session cookie
+  // ownership check omitted for brevity
+  await pb.collection("invoices").update(params.id, {
+    status:  "paid",
+    paid_at: new Date().toISOString(),
+  });
+  return Response.json({ success: true });
 }`;
   return (
     <div className="h-full overflow-auto p-5 space-y-4">
       <div className="flex items-center gap-2 mb-2">
-        <Webhook size={16} className="text-purple-400" />
-        <h2 className="font-display text-xl font-semibold text-zinc-50">Razorpay Webhooks</h2>
-        <TechBadge label="payment.captured" color="border-purple-500/30 text-purple-400 bg-purple-500/8" />
+        <Smartphone size={16} className="text-emerald-400" />
+        <h2 className="font-display text-xl font-semibold text-zinc-50">UPI Payment Flow</h2>
+        <TechBadge label="No gateway" color="border-emerald-500/30 text-emerald-400 bg-emerald-500/8" />
       </div>
       <p className="text-xs text-zinc-500">
-        Creating a payment link calls <code className="text-zinc-300 bg-zinc-800 px-1 rounded">POST /v1/payment_links</code> with the invoice amount.
-        When the customer pays, Razorpay fires a signed webhook — we verify the HMAC and mark the invoice as paid in PocketBase.
+        The customer gets a public <code className="text-zinc-300 bg-zinc-800 px-1 rounded">/pay/[id]</code> page with a UPI QR code and an &quot;I&apos;ve Paid&quot; button. No gateway, no per-transaction fee.
       </p>
-      <CodeBlock code={webhookCode} />
+
+      {/* Mock pay page */}
+      <div className="rounded-xl border border-white/8 bg-[#111113] p-5">
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-4">Customer sees → invoicesnap.../pay/INV-043</p>
+        <div className="max-w-xs mx-auto space-y-4">
+          <div className="text-center">
+            <p className="text-xs text-zinc-500 mb-0.5">Payment request from</p>
+            <p className="text-sm font-semibold text-zinc-100">Rahul Photography</p>
+            <p className="text-xs text-zinc-600">INV-2025-043</p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-zinc-900 p-4 text-center">
+            <p className="text-xs text-zinc-500 mb-1">Amount due</p>
+            <p className="text-3xl font-bold text-zinc-50">₹62,540</p>
+          </div>
+          <div className="rounded-xl border border-white/8 bg-zinc-900 p-4 flex flex-col items-center gap-3">
+            <p className="text-xs text-zinc-500">Scan with any UPI app</p>
+            <div className="bg-white p-2 rounded-lg">
+              <QRCodeSVG value={upiLink} size={110} />
+            </div>
+            <p className="text-xs font-mono text-zinc-400">sai34nayak@okaxis</p>
+            <button className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-white/10 text-xs text-zinc-400">
+              <Smartphone size={12} /> Open UPI App
+            </button>
+          </div>
+          {paid ? (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 p-4 text-center space-y-1">
+              <CheckCircle2 size={18} className="text-emerald-400 mx-auto" />
+              <p className="text-xs font-medium text-emerald-300">Payment noted!</p>
+              <p className="text-[11px] text-zinc-500">Rahul Photography will confirm shortly.</p>
+            </div>
+          ) : (
+            <button
+              onClick={() => setPaid(true)}
+              className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
+            >
+              ✓  I&apos;ve Paid
+            </button>
+          )}
+        </div>
+      </div>
+
+      <CodeBlock code={apiCode} />
     </div>
   );
 }
@@ -676,49 +730,40 @@ export async function POST(req: NextRequest) {
 function PanelWhatsAppAPI() {
   const code = `// POST /api/invoices/[id]/send-whatsapp
 export async function POST(req, { params }) {
-  const pb = await createPBAdminClient();
+  const pb = await createPBClient(); // session-auth
 
-  const invoice = await pb.collection("invoices").getOne(params.id);
-  const client  = await pb.collection("clients").getOne(invoice.client_id);
+  const invoice = await pb.collection("invoices")
+    .getOne(params.id, { expand: "client" });
+  const user    = await pb.collection("users").getOne(invoice.user);
 
-  // Ensure Razorpay link exists
-  if (!invoice.razorpay_link_id) {
-    const link = await createRazorpayLink(invoice);
-    await pb.collection("invoices").update(invoice.id, {
-      razorpay_link_id: link.id,
-      status: "sent",
-    });
-  }
+  const phone   = invoice.expand.client.phone.replace(/\\D/g, "");
+  const payLink = \`\${process.env.NEXT_PUBLIC_APP_URL}/pay/\${params.id}\`;
 
-  const phone = client.phone.replace(/\\D/g, ""); // strip non-digits
+  const message =
+    \`Hello! Invoice \${invoice.invoice_number} for \` +
+    \`₹\${invoice.total} is ready.\\n\\n\` +
+    \`💳 Pay via UPI: \${payLink}\`;
 
-  // WhatsApp Cloud API — template message
-  await fetch(\`https://graph.facebook.com/v20.0/\${PHONE_ID}/messages\`, {
-    method: "POST",
-    headers: { Authorization: \`Bearer \${WHATSAPP_TOKEN}\`,
-               "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: \`91\${phone}\`,
-      type: "template",
-      template: {
-        name: "invoice_ready",
-        language: { code: "en" },
-        components: [{
-          type: "body",
-          parameters: [
-            { type: "text", text: client.name },
-            { type: "text", text: invoice.number },
-            { type: "currency", currency: { code: "INR",
-                amount_1000: invoice.total * 1000 }},
-            { type: "text", text: invoice.razorpay_short_url },
-          ],
-        }],
-      },
-    }),
+  await fetch(
+    \`https://graph.facebook.com/v19.0/\${PHONE_ID}/messages\`,
+    {
+      method: "POST",
+      headers: { Authorization: \`Bearer \${WHATSAPP_TOKEN}\`,
+                 "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: \`91\${phone.slice(-10)}\`,
+        type: "text",
+        text: { body: message },
+      }),
+    },
+  );
+
+  await pb.collection("invoices").update(params.id, {
+    status: "sent", sent_at: new Date().toISOString(),
   });
 
-  return Response.json({ ok: true });
+  return Response.json({ success: true });
 }`;
   return (
     <div className="h-full overflow-auto p-5 space-y-4">
@@ -741,19 +786,19 @@ export async function POST(req, { params }) {
 const PRODUCT_STEPS = [
   { id: "dashboard",  label: "Dashboard",       icon: BarChart3,     panel: PanelDashboard,       desc: "Your command centre — see outstanding revenue, this month's collections, and recent invoices at a glance." },
   { id: "create",     label: "Create Invoice",  icon: FileText,      panel: PanelCreateInvoice,   desc: "Fill in client, add line items, toggle GST. InvoiceSnap auto-calculates the total and assigns the next invoice number." },
-  { id: "whatsapp",   label: "Send on WhatsApp",icon: MessageCircle, panel: PanelWhatsApp,        desc: "One tap. Your client gets a WhatsApp message with the PDF invoice and a Razorpay payment link — no email configuration needed." },
-  { id: "tracking",   label: "Track Payments",  icon: CheckCircle2,  panel: PanelPaymentTracking, desc: "Invoices move from Sent → Paid automatically when the customer pays via Razorpay. Send a nudge directly from this screen." },
+  { id: "whatsapp",   label: "Send on WhatsApp",icon: MessageCircle, panel: PanelWhatsApp,        desc: "One tap. Your client gets a WhatsApp message with a UPI payment link — they open it, scan the QR, and tap I've Paid. No gateway needed." },
+  { id: "tracking",   label: "Track Payments",  icon: CheckCircle2,  panel: PanelPaymentTracking, desc: "When a customer taps I've Paid, the invoice moves to Awaiting Confirmation. You glance at your bank app, then hit Confirm — done." },
   { id: "clients",    label: "Client Directory",icon: Users,         panel: PanelClients,         desc: "Save a client once. Their name, phone, GST number, and address auto-fill on every future invoice." },
   { id: "analytics",  label: "Analytics",       icon: TrendingUp,    panel: PanelAnalytics,       desc: "Monthly revenue chart, average collection time, and payment rates — so you always know where your cash is." },
 ];
 
 const TECH_STEPS = [
-  { id: "stack",     label: "Tech Stack",       icon: Terminal,  panel: PanelTechStack,    desc: "Next.js 16 + PocketBase + Razorpay + WhatsApp Cloud API, deployed on a GCP VM behind Nginx. No managed databases, no vendor lock-in." },
+  { id: "stack",     label: "Tech Stack",       icon: Terminal,  panel: PanelTechStack,    desc: "Next.js 16 + PocketBase + UPI QR + WhatsApp Cloud API, deployed on a GCP VM. No managed databases, no payment gateway, no vendor lock-in." },
   { id: "model",     label: "Data Model",       icon: Database,  panel: PanelDataModel,    desc: "Four PocketBase collections: users, clients, invoices, invoice_items. All foreign keys are plain text fields — PocketBase relations are avoided for query flexibility." },
   { id: "api",       label: "Invoice API",      icon: Code2,     panel: PanelInvoiceAPI,   desc: "POST /api/invoices validates the body with Zod, auto-increments the invoice number, then creates the invoice record and all line items in a single parallel batch." },
   { id: "pdf",       label: "PDF Generation",   icon: FileText,  panel: PanelPDF,          desc: "PDFKit runs server-side in the API route. Invoice data is fetched from PocketBase, laid out programmatically, and streamed directly to the browser — no S3, no temp files." },
-  { id: "razorpay",  label: "Razorpay",         icon: Webhook,   panel: PanelRazorpay,     desc: "Payment link is created on first WhatsApp send. Razorpay fires a signed webhook on payment.captured — we verify the HMAC and flip the invoice status to 'paid'." },
-  { id: "whatsapp",  label: "WhatsApp API",     icon: Globe,     panel: PanelWhatsAppAPI,  desc: "Meta's WhatsApp Cloud API with a pre-approved template. The Razorpay short URL is injected as a template parameter so the client can pay directly from the chat." },
+  { id: "upi",       label: "UPI Payment",      icon: Smartphone,panel: PanelUPIPayment,   desc: "Public /pay/[id] page renders a UPI QR via qrcode.react. Customer taps I've Paid → status becomes payment_pending. Business owner confirms from their dashboard — zero gateway fees." },
+  { id: "whatsapp",  label: "WhatsApp API",     icon: Globe,     panel: PanelWhatsAppAPI,  desc: "Meta's WhatsApp Cloud API sends a text message with the /pay/[id] link. Customer opens it on their phone, scans the QR, and pays instantly with any UPI app." },
 ];
 
 // ─── Main demo player ─────────────────────────────────────────────────────────
