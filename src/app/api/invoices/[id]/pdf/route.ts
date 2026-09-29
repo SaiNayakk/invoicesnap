@@ -1,58 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createElement } from "react";
-import { createPBClient } from "@/lib/pb/server";
+import { getInvoice } from "@/lib/data";
+import { asOwner, fail } from "@/lib/api";
 import { InvoicePDF } from "@/components/pdf/invoice-pdf";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  try {
-    const pb = await createPBClient();
-    if (!pb.authStore.isValid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const userId = pb.authStore.model!.id as string;
-
-    const { id } = await params;
-    const invoice = await pb.collection("invoices").getOne(id, { expand: "client" });
-    if (invoice.user !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    const items = await pb.collection("invoice_items").getFullList({
-      filter: `invoice = "${id}"`,
-      sort:   "sort_order",
-    });
-
-    const userRecord = await pb.collection("users").getOne(userId);
-
+  return asOwner(async (owner) => {
+    const found = await getInvoice(owner.id, (await params).id);
+    if (!found) return fail("Not found", 404);
+    const { invoice, items, client } = found;
     const pdfData = {
       ...invoice,
-      invoice_items: items,
-      client:        invoice.expand?.client ?? null,
+      items,
+      client,
       profile: {
-        business_name: userRecord.business_name || "Your Business",
-        email:         userRecord.email,
-        phone:         userRecord.phone || "",
-        address:       userRecord.address || "",
-        gst_number:    userRecord.gst_number || "",
-        upi_id:        userRecord.upi_id || "",
-        bank_name:     userRecord.bank_name || "",
-        bank_account_number: userRecord.bank_account_number || "",
-        bank_ifsc:     userRecord.bank_ifsc || "",
+        business_name: owner.business_name || "Your Business", email: owner.email, phone: owner.phone, address: owner.address,
+        city: owner.city, state: owner.state, pincode: owner.pincode, gst_number: owner.gst_number, pan_number: owner.pan_number,
+        upi_id: owner.upi_id, bank_name: owner.bank_name, bank_account_number: owner.bank_account_number, bank_ifsc: owner.bank_ifsc,
       },
     };
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfBuffer = await renderToBuffer(InvoicePDF({ invoice: pdfData as any }) as any);
-
-    return new NextResponse(pdfBuffer as unknown as BodyInit, {
-      status: 200,
+    const pdf = await renderToBuffer(InvoicePDF({ invoice: pdfData as any }) as any);
+    return new NextResponse(pdf as unknown as BodyInit, {
       headers: {
-        "Content-Type":        "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoice.invoice_number}.pdf"`,
-        "Cache-Control":       "no-store",
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${invoice.invoice_number.replace(/[^\w-]/g, "")}.pdf"`,
+        "Cache-Control": "no-store",
       },
     });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  });
 }

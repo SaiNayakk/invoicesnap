@@ -1,37 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import PocketBase from "pocketbase";
+import { setAuthCookie } from "@/lib/auth-cookie";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { body, fail } from "@/lib/api";
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit(`register:${clientIp(req)}`, 5, 60 * 60_000)) return fail("Too many sign-ups from here. Please try later.", 429);
+  const b = await body(req);
+  const email = typeof b.email === "string" ? b.email.trim().toLowerCase() : "";
+  const password = typeof b.password === "string" ? b.password : "";
+  const businessName = typeof b.business_name === "string" ? b.business_name.trim().slice(0, 80) : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Please enter a valid email.");
+  if (password.length < 8) return fail("Use at least 8 characters for the password.");
+  if (!businessName) return fail("Please enter your business or trading name.");
+  const pb = new PocketBase(process.env.NEXT_PUBLIC_PB_URL!);
   try {
-    const { email, password, name, business_name } = await req.json();
-
-    const pb = new PocketBase(process.env.NEXT_PUBLIC_PB_URL!);
-
     await pb.collection("users").create({
-      email,
-      password,
-      passwordConfirm: password,
-      name: name ?? email.split("@")[0],
-      business_name: business_name ?? "",
-      plan: "free",
-      invoice_counter: 0,
-      invoice_prefix: "INV",
+      email, password, passwordConfirm: password, name: businessName, business_name: businessName,
+      plan: "free", invoice_counter: 0, invoice_prefix: "INV", default_due_days: 15,
     });
-
-    // Auto sign-in after registration
-    const authData = await pb.collection("users").authWithPassword(email, password);
-
-    const response = NextResponse.json({ user: authData.record }, { status: 201 });
-    response.cookies.set("pb_auth", JSON.stringify({ token: authData.token, model: authData.record }), {
-      httpOnly: true,
-      secure:   process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path:     "/",
-      maxAge:   60 * 60 * 24 * 30,
-    });
-    return response;
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Registration failed";
-    return NextResponse.json({ error: message }, { status: 400 });
+  } catch {
+    return fail("That email may already be registered. Try signing in.");
   }
+  const auth = await pb.collection("users").authWithPassword(email, password);
+  const res = NextResponse.json({ ok: true }, { status: 201 });
+  setAuthCookie(res, auth.token, auth.record);
+  return res;
 }

@@ -1,70 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createPBClient } from "@/lib/pb/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { createPBAdminClient } from "@/lib/pb/server";
+import { getInvoice, setStatus } from "@/lib/data";
+import { asOwner, body, fail } from "@/lib/api";
+import { invalidateInsights } from "@/lib/ai/insights";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  try {
-    const pb = await createPBClient();
-    if (!pb.authStore.isValid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const userId = pb.authStore.model!.id as string;
-
-    const { id } = await params;
-    const invoice = await pb.collection("invoices").getOne(id, { expand: "client" });
-    if (invoice.user !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    const items = await pb.collection("invoice_items").getFullList({
-      filter: `invoice = "${id}"`,
-      sort:   "sort_order",
-    });
-
-    return NextResponse.json({ invoice: { ...invoice, invoice_items: items } });
-  } catch {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  return asOwner(async (owner) => {
+    const found = await getInvoice(owner.id, (await params).id);
+    return found ? NextResponse.json(found) : fail("Not found", 404);
+  });
 }
 
-export async function PUT(req: NextRequest, { params }: Params) {
-  try {
-    const pb = await createPBClient();
-    if (!pb.authStore.isValid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const userId = pb.authStore.model!.id as string;
-
-    const { id } = await params;
-    const existing = await pb.collection("invoices").getOne(id);
-    if (existing.user !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    const body = await req.json();
-    const updated = await pb.collection("invoices").update(id, body);
-
-    return NextResponse.json({ invoice: updated });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+/** Only a few transitions are allowed; nothing else about an invoice is editable after it's sent. */
+export async function PATCH(req: NextRequest, { params }: Params) {
+  return asOwner(async (owner) => {
+    const found = await getInvoice(owner.id, (await params).id);
+    if (!found) return fail("Not found", 404);
+    const { invoice } = found;
+    const action = (await body(req)).action;
+    if (action === "cancel" && invoice.status !== "paid") {
+      await setStatus(owner.id, invoice.id, "cancelled");
+    } else if (action === "reopen" && invoice.status === "payment_pending") {
+      // The client said they paid but nothing arrived.
+      await setStatus(owner.id, invoice.id, "sent", { claimed_at: "" });
+    } else {
+      return fail("That change isn't allowed for this invoice.");
+    }
+    return NextResponse.json({ ok: true });
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  try {
-    const pb = await createPBClient();
-    if (!pb.authStore.isValid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const userId = pb.authStore.model!.id as string;
-
-    const { id } = await params;
-    const existing = await pb.collection("invoices").getOne(id);
-    if (existing.user !== userId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (existing.status !== "draft") {
-      return NextResponse.json({ error: "Only draft invoices can be deleted" }, { status: 400 });
-    }
-
-    // Delete items first (cascade not guaranteed via API)
-    const items = await pb.collection("invoice_items").getFullList({ filter: `invoice = "${id}"` });
-    await Promise.all(items.map((item) => pb.collection("invoice_items").delete(item.id)));
-    await pb.collection("invoices").delete(id);
-
-    return NextResponse.json({ success: true });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  return asOwner(async (owner) => {
+    const found = await getInvoice(owner.id, (await params).id);
+    if (!found) return fail("Not found", 404);
+    if (found.invoice.status !== "draft") return fail("Only drafts can be deleted. Cancel a sent invoice instead.");
+    const pb = await createPBAdminClient();
+    await pb.collection("invoices").delete(found.invoice.id); // items cascade
+    invalidateInsights(owner.id);
+    return NextResponse.json({ ok: true });
+  });
 }

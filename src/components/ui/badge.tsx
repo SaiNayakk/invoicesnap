@@ -11,7 +11,8 @@ const badgeVariants = cva(
         sent:            "bg-amber-500/12 text-amber-400 border border-amber-500/20",
         draft:           "bg-zinc-500/12 text-zinc-400 border border-zinc-500/20",
         overdue:         "bg-red-500/12 text-red-400 border border-red-500/20",
-        payment_pending: "bg-blue-500/12 text-blue-400 border border-blue-500/20",
+        payment_pending: "bg-sky-500/12 text-sky-300 border border-sky-500/20",
+        cancelled:       "bg-zinc-500/10 text-zinc-500 border border-zinc-600/30 line-through",
         default:         "bg-zinc-800 text-zinc-300 border border-zinc-700",
       },
     },
@@ -29,14 +30,15 @@ function Badge({ className, variant, children, ...props }: BadgeProps) {
     sent:            "bg-amber-400",
     draft:           "bg-zinc-400",
     overdue:         "bg-red-400",
-    payment_pending: "bg-blue-400",
+    payment_pending: "bg-sky-300",
+    cancelled:       "bg-zinc-600",
     default:         "bg-zinc-400",
   };
   const dot = dotColors[variant ?? "default"];
 
   return (
     <span className={cn(badgeVariants({ variant }), className)} {...props}>
-      <span className={cn("inline-block w-1.5 h-1.5 rounded-full", dot, variant === "sent" && "dot-pulse")} />
+      <span className={cn("inline-block w-1.5 h-1.5 rounded-full", dot)} />
       {children}
     </span>
   );
