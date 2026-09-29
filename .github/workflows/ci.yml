@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholders so the build can run; real values only exist on the phone.
+      NEXT_PUBLIC_APP_URL: "https://example.test"
+      NEXT_PUBLIC_PB_URL: "https://pb.example.test"
+      PB_URL: "https://pb.example.test"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type-check
+        run: npx tsc --noEmit -p .
+      - name: Tests
+        run: npm test
+      - name: Build
+        run: npm run build

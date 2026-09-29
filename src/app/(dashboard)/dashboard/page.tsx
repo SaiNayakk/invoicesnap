@@ -1,279 +1,139 @@
 import Link from "next/link";
-import {
-  TrendingUp,
-  FileText,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-  Plus,
-  ArrowRight,
-  MessageCircle,
-  IndianRupee,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import type { Metadata } from "next";
+import { ArrowRight, Check } from "lucide-react";
+import { requireOwner } from "@/lib/owner";
+import { isDemoUser, listClients, listInvoices } from "@/lib/data";
+import { getInsights } from "@/lib/ai/insights";
+import { daysBetween, formatDay } from "@/lib/dates";
+import { formatCurrency } from "@/lib/utils";
+import { OPEN } from "@/lib/types";
+import { PageHeader, Panel, Stat, StatusBadge } from "@/components/app/ui";
+import { CashflowChart } from "@/components/app/cashflow-chart";
+import { AttentionList, type AttentionItem } from "@/components/app/attention";
+import { SummaryPanel } from "@/components/app/summary-panel";
 
-const stats = [
-  {
-    label: "Total Outstanding",
-    value: formatCurrency(148500),
-    sub: "across 12 invoices",
-    icon: IndianRupee,
-    color: "text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/15",
-  },
-  {
-    label: "Paid This Month",
-    value: formatCurrency(82300),
-    sub: "8 invoices paid",
-    icon: CheckCircle2,
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/15",
-  },
-  {
-    label: "Invoices Sent",
-    value: "23",
-    sub: "this month",
-    icon: FileText,
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/15",
-  },
-  {
-    label: "Overdue",
-    value: "4",
-    sub: formatCurrency(38200) + " at risk",
-    icon: AlertCircle,
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/15",
-  },
-];
+export const metadata: Metadata = { title: "Overview" };
 
-const recentInvoices = [
-  {
-    id: "INV-2025-042",
-    client: "Sneha Reddy",
-    clientInitial: "S",
-    amount: 45000,
-    status: "paid" as const,
-    date: "2025-04-28",
-    dueDate: "2025-04-30",
-  },
-  {
-    id: "INV-2025-041",
-    client: "Vikram Events",
-    clientInitial: "V",
-    amount: 72000,
-    status: "sent" as const,
-    date: "2025-04-26",
-    dueDate: "2025-05-10",
-  },
-  {
-    id: "INV-2025-040",
-    client: "Meera Tutoring",
-    clientInitial: "M",
-    amount: 18000,
-    status: "overdue" as const,
-    date: "2025-04-15",
-    dueDate: "2025-04-25",
-  },
-  {
-    id: "INV-2025-039",
-    client: "Arjun Nair Design",
-    clientInitial: "A",
-    amount: 38500,
-    status: "sent" as const,
-    date: "2025-04-22",
-    dueDate: "2025-05-05",
-  },
-  {
-    id: "INV-2025-038",
-    client: "Priya Photography",
-    clientInitial: "P",
-    amount: 62000,
-    status: "paid" as const,
-    date: "2025-04-18",
-    dueDate: "2025-04-22",
-  },
-];
+const inr = (n: number) => formatCurrency(Math.round(n));
 
-const statusLabels: Record<string, string> = {
-  paid:            "Paid",
-  sent:            "Sent",
-  draft:           "Draft",
-  overdue:         "Overdue",
-  payment_pending: "Awaiting Confirmation",
-};
+export default async function Overview() {
+  const owner = await requireOwner();
+  const [invoices, clients, ins] = await Promise.all([listInvoices(owner.id), listClients(owner.id), getInsights(owner.id)]);
+  const name = new Map(clients.map((c) => [c.id, c.name]));
+  const t = ins.totals;
 
-export default function DashboardPage() {
+  if (!invoices.length) return <Welcome hasProfile={Boolean(owner.upi_id)} hasClients={clients.length > 0} />;
+
+  const attention: AttentionItem[] = [];
+  for (const inv of invoices) {
+    const p = ins.predictions[inv.id];
+    if (!OPEN.includes(inv.status) || !p) continue;
+    const late = daysBetween(inv.due_date, ins.today);
+    const base = { id: inv.id, number: inv.invoice_number, client: name.get(inv.client) ?? "Client", total: inv.total, level: p.level, why: p.reasons.join(". ") };
+    if (inv.status === "payment_pending") attention.push({ ...base, kind: "claimed", detail: "Client says they've paid. Check your bank or UPI app." });
+    else if (inv.status === "overdue") attention.push({ ...base, kind: "overdue", detail: `${late} day${late === 1 ? "" : "s"} late · expected around ${formatDay(p.expected)}` });
+    else if (p.level === "high") attention.push({ ...base, kind: "risky", detail: `Due ${formatDay(inv.due_date)} · ${p.reasons[0] ?? ""}` });
+  }
+  const rank = (a: AttentionItem) => (a.kind === "claimed" ? 1e12 : a.kind === "overdue" ? 1e9 + a.total : a.total);
+  attention.sort((a, b) => rank(b) - rank(a));
+
+  const recent = invoices.slice(0, 6);
+  const bt = ins.backtest;
+  const version = `${t.outstanding}:${t.paidThisMonth}:${t.openCount}:${ins.today}`;
+
   return (
-    <div className="p-6 lg:p-8 max-w-6xl">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-zinc-50 mb-1">
-            Good morning, Rahul 👋
-          </h1>
-          <p className="text-sm text-zinc-500">Here&apos;s what&apos;s happening with your invoices today.</p>
-        </div>
-        <Button size="sm" asChild>
-          <Link href="/invoices/new">
-            <Plus size={15} /> New Invoice
-          </Link>
-        </Button>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <PageHeader title="Overview" sub={`${owner.business_name || "Your business"} · ${formatDay(ins.today, true)}`} />
+
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Owed to you" value={inr(t.outstanding)} sub={`${t.openCount} open invoice${t.openCount === 1 ? "" : "s"}`} />
+        <Stat label="Overdue" value={inr(t.overdue)} sub={`${t.overdueCount} invoice${t.overdueCount === 1 ? "" : "s"}`} tone={t.overdueCount ? "red" : undefined} />
+        <Stat label="Expected in 30 days" value={inr(ins.forecast.next30.p50)} sub={`Likely ${inr(ins.forecast.next30.p10)} to ${inr(ins.forecast.next30.p90)}`} />
+        <Stat label="Received this month" value={inr(t.paidThisMonth)} sub={`${t.paidThisMonthCount} payment${t.paidThisMonthCount === 1 ? "" : "s"}`} tone={t.paidThisMonth ? "green" : undefined} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map(({ label, value, sub, icon: Icon, color, bg, border }) => (
-          <div
-            key={label}
-            className="rounded-xl border border-white/8 bg-[#111113] p-5 card-hover"
-          >
-            <div className={`w-9 h-9 rounded-lg ${bg} border ${border} flex items-center justify-center mb-3`}>
-              <Icon size={17} className={color} />
-            </div>
-            <p className="text-xl font-semibold text-zinc-100 mb-0.5">{value}</p>
-            <p className="text-xs text-zinc-500">{label}</p>
-            <p className="text-[10px] text-zinc-600 mt-0.5">{sub}</p>
-          </div>
-        ))}
-      </div>
+      <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+        <div className="min-w-0 space-y-5">
+          <Panel title="Needs your attention" sub="Payments to confirm, late invoices, and ones likely to be late"
+            action={attention.length > 0 && <span className="text-xs text-zinc-500">{attention.length}</span>}>
+            <AttentionList items={attention.slice(0, 8)} demo={isDemoUser(owner)} />
+          </Panel>
 
-      {/* Recent Invoices + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent invoices table */}
-        <div className="lg:col-span-2 rounded-xl border border-white/8 bg-[#111113]">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/7">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-200">Recent Invoices</h2>
-              <p className="text-xs text-zinc-500">Your last 5 invoices</p>
-            </div>
-            <Button variant="ghost" size="sm" className="text-xs" asChild>
-              <Link href="/invoices">
-                View all <ArrowRight size={12} />
-              </Link>
-            </Button>
-          </div>
+          <Panel title="Money expected in" sub="Next six weeks, simulated from each client's payment history">
+            {t.openCount ? <CashflowChart weeks={ins.forecast.weeks} /> : <p className="text-sm text-zinc-500">No open invoices, so nothing is expected yet.</p>}
+          </Panel>
 
-          <div className="divide-y divide-white/5">
-            {recentInvoices.map((inv) => (
-              <div
-                key={inv.id}
-                className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/2 transition-colors group"
-              >
-                {/* Avatar */}
-                <div className="w-8 h-8 rounded-full bg-emerald-500/12 border border-emerald-500/15 flex items-center justify-center text-xs font-semibold text-emerald-400 shrink-0">
-                  {inv.clientInitial}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-zinc-200 truncate">{inv.client}</p>
-                  </div>
-                  <p className="text-xs text-zinc-600">{inv.id} · Due {formatDate(inv.dueDate)}</p>
-                </div>
-
-                {/* Amount */}
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-medium text-zinc-200">{formatCurrency(inv.amount)}</p>
-                  <Badge variant={inv.status} className="mt-0.5">
-                    {statusLabels[inv.status]}
-                  </Badge>
-                </div>
-
-                {/* Actions (shown on hover) */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  {inv.status !== "paid" && (
-                    <button className="h-7 w-7 rounded-md bg-[#25D366]/15 border border-[#25D366]/20 flex items-center justify-center text-[#25D366] hover:bg-[#25D366]/25 transition-colors">
-                      <MessageCircle size={13} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right column */}
-        <div className="flex flex-col gap-4">
-          {/* Quick actions */}
-          <div className="rounded-xl border border-white/8 bg-[#111113] p-5">
-            <h2 className="text-sm font-semibold text-zinc-200 mb-4">Quick actions</h2>
-            <div className="flex flex-col gap-2">
-              <Button className="w-full justify-start gap-3" size="sm" asChild>
-                <Link href="/invoices/new">
-                  <Plus size={15} /> Create new invoice
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-3" size="sm" asChild>
-                <Link href="/clients">
-                  <Plus size={15} /> Add client
-                </Link>
-              </Button>
-            </div>
-          </div>
-
-          {/* Summary ring */}
-          <div className="rounded-xl border border-white/8 bg-[#111113] p-5">
-            <h2 className="text-sm font-semibold text-zinc-200 mb-4">This month</h2>
-            <div className="space-y-3">
-              {[
-                { label: "Paid", count: 8, amount: 82300, color: "bg-emerald-500" },
-                { label: "Sent", count: 7, amount: 110500, color: "bg-amber-500" },
-                { label: "Overdue", count: 4, amount: 38200, color: "bg-red-500" },
-                { label: "Draft", count: 4, amount: 54000, color: "bg-zinc-600" },
-              ].map(({ label, count, amount, color }) => (
-                <div key={label} className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
-                  <span className="text-xs text-zinc-400 flex-1">{label}</span>
-                  <span className="text-xs text-zinc-500">{count}</span>
-                  <span className="text-xs font-medium text-zinc-300">{formatCurrency(amount)}</span>
-                </div>
+          <Panel title="Recent invoices" action={<Link href="/invoices" className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200">All invoices <ArrowRight size={12} /></Link>} bodyClass="p-0">
+            <ul className="divide-y divide-zinc-800/70">
+              {recent.map((inv) => (
+                <li key={inv.id}>
+                  <Link href={`/invoices/${inv.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-zinc-900/60">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-zinc-100">{name.get(inv.client)}</p>
+                      <p className="text-xs text-zinc-500">{inv.invoice_number} · {formatDay(inv.invoice_date)}</p>
+                    </div>
+                    <span className="text-sm tabular-nums text-zinc-200">{inr(inv.total)}</span>
+                    <span className="hidden w-32 justify-end sm:flex"><StatusBadge status={inv.status} /></span>
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
+          </Panel>
+        </div>
 
-            {/* Bar chart visual */}
-            <div className="mt-5 pt-4 border-t border-white/7">
-              <div className="flex items-end gap-1 h-16">
-                {[65, 40, 75, 55, 90, 70, 85, 60, 45, 80, 95, 72].map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-sm bg-emerald-500/20 hover:bg-emerald-500/40 transition-colors cursor-pointer"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between mt-1 text-[10px] text-zinc-600">
-                <span>Jan</span>
-                <span>Apr</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Upgrade nudge (if free plan) */}
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp size={15} className="text-emerald-400" />
-              <span className="text-sm font-semibold text-emerald-300">Upgrade to Pro</span>
-            </div>
-            <p className="text-xs text-zinc-400 mb-4 leading-relaxed">
-              Send invoices via WhatsApp and accept payments via UPI. Used 4 of 5 free invoices.
-            </p>
-            <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-4">
-              <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: "80%" }} />
-            </div>
-            <Button className="w-full text-xs" size="sm" asChild>
-              <Link href="#">Upgrade — ₹299/mo</Link>
-            </Button>
-          </div>
+        <div className="space-y-5">
+          <Panel title="This week's summary">
+            <SummaryPanel version={version} />
+          </Panel>
+          {bt && (
+            <Panel title="How good are the predictions?">
+              <p className="text-sm leading-relaxed text-zinc-300">
+                Replayed on {bt.invoices} of your past invoices, predicted payment dates were off by <strong className="text-zinc-50">{bt.maeModel.toFixed(1)} days</strong> on
+                average, against {bt.maeDueDate.toFixed(1)} days if you assume clients pay on the due date.
+              </p>
+              <p className="mt-2 text-xs text-zinc-500">
+                {Math.round(bt.coverage * 100)}% of payments landed inside the predicted range.
+                {bt.auc !== null && <> Late-payment warnings ranked a late invoice above an on-time one {Math.round(bt.auc * 100)}% of the time.</>}
+              </p>
+            </Panel>
+          )}
+          {t.gstThisMonth > 0 && (
+            <Panel title="GST this month">
+              <p className="text-sm text-zinc-300"><strong className="tabular-nums text-zinc-50">{inr(t.gstThisMonth)}</strong> charged on {formatCurrency(t.billedThisMonth)} billed.</p>
+              <p className="mt-1 text-xs text-zinc-500">Reported in GSTR-1 by the 11th of next month.</p>
+            </Panel>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function Welcome({ hasProfile, hasClients }: { hasProfile: boolean; hasClients: boolean }) {
+  const steps = [
+    { done: hasProfile, label: "Add your UPI ID and GSTIN", href: "/settings", note: "They go on every invoice and payment page." },
+    { done: hasClients, label: "Add a client", href: "/clients", note: "Or let the invoice builder add one from a message." },
+    { done: false, label: "Send your first invoice", href: "/invoices/new", note: "Type it like a WhatsApp message and review the draft." },
+  ];
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <PageHeader title="Welcome to InvoiceSnap" sub="Three steps to your first payment." />
+      <ol className="space-y-3">
+        {steps.map((s, i) => (
+          <li key={s.label}>
+            <Link href={s.href} className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 px-5 py-4 hover:border-zinc-700">
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${s.done ? "bg-emerald-500 text-zinc-950" : "border border-zinc-700 text-zinc-400"}`}>
+                {s.done ? <Check size={14} /> : i + 1}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-zinc-100">{s.label}</span>
+                <span className="block text-xs text-zinc-500">{s.note}</span>
+              </span>
+              <ArrowRight size={15} className="text-zinc-600" />
+            </Link>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

@@ -1,13 +1,9 @@
 import PocketBase from "pocketbase";
 import { cookies } from "next/headers";
 
-/**
- * Server-side PocketBase client.
- * Reads the pb_auth cookie and loads the auth state so
- * pb.authStore.isValid / pb.authStore.model work in API routes.
- */
 export async function createPBClient(): Promise<PocketBase> {
-  const pb = new PocketBase(process.env.NEXT_PUBLIC_PB_URL!);
+  const pbUrl = process.env.PB_URL || process.env.NEXT_PUBLIC_PB_URL!;
+  const pb = new PocketBase(pbUrl);
   try {
     const cookieStore = await cookies();
     const raw = cookieStore.get("pb_auth")?.value;
@@ -15,21 +11,36 @@ export async function createPBClient(): Promise<PocketBase> {
       const { token, model } = JSON.parse(raw);
       pb.authStore.save(token, model);
     }
-  } catch {
-    /* malformed cookie — stay unauthenticated */
-  }
+  } catch { /* malformed cookie */ }
   return pb;
 }
 
-/**
- * Server-side PocketBase client authenticated as a superuser.
- * Use only in trusted server contexts (webhooks, background tasks).
- */
+// One superuser session per server process, refreshed shortly before it expires.
+// Re-authenticating on every request added a round trip and hammered the auth endpoint.
+let admin: PocketBase | null = null;
+let adminAuth: Promise<void> | null = null;
+
 export async function createPBAdminClient(): Promise<PocketBase> {
-  const pb = new PocketBase(process.env.NEXT_PUBLIC_PB_URL!);
-  await pb.collection("_superusers").authWithPassword(
-    process.env.PB_ADMIN_EMAIL!,
-    process.env.PB_ADMIN_PASSWORD!,
-  );
-  return pb;
+  if (admin && admin.authStore.isValid && !expiresSoon(admin.authStore.token)) return admin;
+  if (!adminAuth) {
+    const pbUrl = process.env.PB_URL || process.env.NEXT_PUBLIC_PB_URL!;
+    const pb = new PocketBase(pbUrl);
+    pb.autoCancellation(false);
+    adminAuth = pb
+      .collection("_superusers")
+      .authWithPassword(process.env.PB_ADMIN_EMAIL!, process.env.PB_ADMIN_PASSWORD!)
+      .then(() => { admin = pb; })
+      .finally(() => { adminAuth = null; });
+  }
+  await adminAuth;
+  return admin!;
+}
+
+function expiresSoon(token: string): boolean {
+  try {
+    const { exp } = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    return exp * 1000 - Date.now() < 5 * 60 * 1000;
+  } catch {
+    return true;
+  }
 }

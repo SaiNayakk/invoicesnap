@@ -15,9 +15,10 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "InvoiceSnap — Invoice on WhatsApp. Get paid faster.",
+  title: { default: "InvoiceSnap: GST invoices on WhatsApp", template: "%s | InvoiceSnap" },
   description:
-    "Create professional invoices and send them via WhatsApp with a UPI payment link — built for Indian freelancers and small vendors.",
+    "GST invoices sent on WhatsApp with a UPI payment link, for Indian freelancers and small businesses.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
@@ -27,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable} dark`}>
-      <body className="grain antialiased min-h-screen">{children}</body>
+      <body className="antialiased min-h-screen">{children}</body>
     </html>
   );
 }

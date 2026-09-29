@@ -1,364 +1,117 @@
-"use client";
-
-import { useState } from "react";
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
-import {
-  TrendingUp, TrendingDown, Download, Calendar,
-  IndianRupee, FileText, CheckCircle2, AlertCircle, Clock,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { Metadata } from "next";
+import { requireOwner } from "@/lib/owner";
+import { listClients, listInvoices } from "@/lib/data";
+import { dateOf, daysBetween, financialYear, todayIST } from "@/lib/dates";
 import { formatCurrency } from "@/lib/utils";
+import { PageHeader, Panel, Stat } from "@/components/app/ui";
 
-// ── Mock data (replace with /api/analytics fetch) ─────────────────────────────
-const CURRENT_FY = "2024-25";
+export const metadata: Metadata = { title: "Reports" };
 
-const fyStats = {
-  total:   1248500,
-  paid:    892300,
-  pending: 210200,
-  overdue: 146000,
-  gst:     189842,
-  count:   87,
-};
+const inr = (n: number) => formatCurrency(Math.round(n));
+const MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
 
-const monthlyData = [
-  { month: "Apr", total: 78000,  paid: 62000,  count: 6  },
-  { month: "May", total: 92000,  paid: 80000,  count: 7  },
-  { month: "Jun", total: 65000,  paid: 55000,  count: 5  },
-  { month: "Jul", total: 115000, paid: 98000,  count: 9  },
-  { month: "Aug", total: 88000,  paid: 75000,  count: 7  },
-  { month: "Sep", total: 140000, paid: 120000, count: 11 },
-  { month: "Oct", total: 98000,  paid: 82000,  count: 8  },
-  { month: "Nov", total: 125000, paid: 105000, count: 10 },
-  { month: "Dec", total: 110000, paid: 95000,  count: 9  },
-  { month: "Jan", total: 132000, paid: 110000, count: 11 },
-  { month: "Feb", total: 82000,  paid: 0,      count: 7  },
-  { month: "Mar", total: 123500, paid: 0,      count: 7  },
-];
+export default async function ReportsPage() {
+  const owner = await requireOwner();
+  const [all, clients] = await Promise.all([listInvoices(owner.id), listClients(owner.id)]);
+  const today = todayIST();
+  const fy = financialYear(today);
+  const invoices = all.filter((i) => i.status !== "draft" && i.status !== "cancelled" && i.invoice_date >= fy.start && i.invoice_date <= fy.end);
+  const name = new Map(clients.map((c) => [c.id, c.name]));
 
-// Daily data for current month (last 30 days)
-const dailyData = Array.from({ length: 30 }, (_, i) => ({
-  day: i + 1,
-  amount: Math.random() < 0.3 ? 0 : Math.round((Math.random() * 45000 + 5000) / 500) * 500,
-}));
+  const billed = invoices.reduce((s, i) => s + i.total, 0);
+  const paid = all.filter((i) => i.paid_at && dateOf(i.paid_at) >= fy.start && dateOf(i.paid_at) <= fy.end);
+  const received = paid.reduce((s, i) => s + i.total, 0);
+  const gst = invoices.reduce((s, i) => s + (i.gst_amount || 0), 0);
+  const delays = paid.map((i) => daysBetween(i.invoice_date, i.paid_at)).sort((a, b) => a - b);
+  const medianDays = delays.length ? delays[Math.floor(delays.length / 2)] : null;
 
-const statusPie = [
-  { name: "Paid",    value: 892300, color: "#10b981" },
-  { name: "Sent",    value: 210200, color: "#f59e0b" },
-  { name: "Overdue", value: 146000, color: "#ef4444" },
-  { name: "Draft",   value: 0,      color: "#52525b" },
-];
+  const months = MONTHS.map((m, k) => {
+    const y = k < 9 ? Number(fy.start.slice(0, 4)) : Number(fy.start.slice(0, 4)) + 1;
+    const key = `${y}-${String(((k + 3) % 12) + 1).padStart(2, "0")}`;
+    const inv = invoices.filter((i) => i.invoice_date.startsWith(key));
+    return {
+      label: m, key, future: key > today.slice(0, 7),
+      billed: inv.reduce((s, i) => s + i.total, 0),
+      received: paid.filter((i) => dateOf(i.paid_at).startsWith(key)).reduce((s, i) => s + i.total, 0),
+      taxable: inv.reduce((s, i) => s + i.subtotal, 0),
+      cgst: inv.reduce((s, i) => s + (i.cgst_amount || 0), 0),
+      sgst: inv.reduce((s, i) => s + (i.sgst_amount || 0), 0),
+      igst: inv.reduce((s, i) => s + (i.igst_amount || 0), 0),
+      count: inv.length,
+    };
+  });
+  const max = Math.max(1, ...months.map((m) => Math.max(m.billed, m.received)));
 
-const topClients = [
-  { name: "Vikram Events",     revenue: 315000 },
-  { name: "Arjun Nair Design", revenue: 228500 },
-  { name: "Priya Photography", revenue: 189000 },
-  { name: "Sneha Reddy",       revenue: 142000 },
-  { name: "Rohit Kumar",       revenue: 98000  },
-  { name: "Meera Tutoring",    revenue: 54000  },
-];
-
-const monthInvoices = [
-  { number: "INV-2025-042", client: "Sneha Reddy",       amount: 45000, status: "paid",    date: "28 Apr 2025" },
-  { number: "INV-2025-041", client: "Vikram Events",      amount: 72000, status: "sent",    date: "26 Apr 2025" },
-  { number: "INV-2025-040", client: "Meera Tutoring",     amount: 18000, status: "overdue", date: "15 Apr 2025" },
-  { number: "INV-2025-039", client: "Arjun Nair Design",  amount: 38500, status: "sent",    date: "22 Apr 2025" },
-  { number: "INV-2025-038", client: "Priya Photography",  amount: 62000, status: "paid",    date: "18 Apr 2025" },
-  { number: "INV-2025-037", client: "Deepa Krishnan",     amount: 12000, status: "overdue", date: "10 Apr 2025" },
-];
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-function StatCard({
-  label, value, sub, icon: Icon, trend, color,
-}: {
-  label: string; value: string; sub: string;
-  icon: React.ElementType; trend?: number; color: string;
-}) {
-  return (
-    <div className="rounded-xl border border-white/8 bg-[#111113] p-5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${color}`}>
-          <Icon size={16} className="text-current" />
-        </div>
-        {trend !== undefined && (
-          <span className={`flex items-center gap-1 text-xs font-medium ${trend >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {Math.abs(trend)}%
-          </span>
-        )}
-      </div>
-      <p className="text-xl font-semibold text-zinc-100 mb-0.5">{value}</p>
-      <p className="text-xs font-medium text-zinc-400">{label}</p>
-      <p className="text-[10px] text-zinc-600 mt-0.5">{sub}</p>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const customTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-white/10 bg-zinc-900 shadow-xl px-3 py-2.5">
-      <p className="text-xs text-zinc-400 mb-1">{label}</p>
-      {payload.map((p: { name: string; value: number }, i: number) => (
-        <p key={i} className="text-sm font-semibold text-zinc-100">
-          {p.name}: {formatCurrency(p.value)}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-export default function AnalyticsPage() {
-  const [view, setView] = useState<"monthly" | "daily">("monthly");
-  const [fySelector, setFySelector] = useState(CURRENT_FY);
-
-  const monthTotal   = monthlyData[10].total; // Feb (index 10) = current month mock
-  const monthPaid    = monthlyData[9].paid;
-  const todayAmount  = dailyData[dailyData.length - 1].amount;
-
-  const badgeColor: Record<string, string> = {
-    paid:    "bg-emerald-500/12 text-emerald-400 border-emerald-500/20",
-    sent:    "bg-amber-500/12 text-amber-400 border-amber-500/20",
-    overdue: "bg-red-500/12 text-red-400 border-red-500/20",
-    draft:   "bg-zinc-500/12 text-zinc-400 border-zinc-500/20",
-  };
+  const byClient = new Map<string, number>();
+  for (const i of invoices) byClient.set(i.client, (byClient.get(i.client) ?? 0) + i.total);
+  const top = [...byClient].sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl space-y-7">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-zinc-50 mb-1">Analytics</h1>
-          <p className="text-sm text-zinc-500">Revenue, collections, and invoice trends</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* FY picker */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-zinc-900/50 px-3 py-1.5">
-            <Calendar size={13} className="text-zinc-500" />
-            <select
-              value={fySelector}
-              onChange={e => setFySelector(e.target.value)}
-              className="bg-transparent text-sm text-zinc-300 outline-none cursor-pointer"
-            >
-              <option value="2024-25">FY 2024-25</option>
-              <option value="2023-24">FY 2023-24</option>
-              <option value="2022-23">FY 2022-23</option>
-            </select>
-          </div>
-          <Button variant="outline" size="sm">
-            <Download size={14} /> Export Statement
-          </Button>
-        </div>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <PageHeader title="Reports" sub={`Financial year ${fy.label}, April to March`} />
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Billed" value={inr(billed)} sub={`${invoices.length} invoices`} />
+        <Stat label="Received" value={inr(received)} sub={`${paid.length} payments`} />
+        <Stat label="GST charged" value={inr(gst)} />
+        <Stat label="Typical time to get paid" value={medianDays === null ? "-" : `${medianDays} days`} sub="From invoice date, median" />
       </div>
 
-      {/* ── Period cards ── */}
-      <div>
-        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-widest mb-3">Today</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <StatCard label="Invoiced today"   value={formatCurrency(todayAmount)}  sub="1 invoice created"  icon={FileText}     trend={12}  color="bg-blue-500/12 text-blue-400"    />
-          <StatCard label="Collected today"  value={formatCurrency(0)}            sub="Awaiting payments"  icon={IndianRupee}  trend={0}   color="bg-emerald-500/12 text-emerald-400" />
-          <StatCard label="Pending today"    value={formatCurrency(todayAmount)}  sub="1 unpaid invoice"   icon={Clock}        color="bg-amber-500/12 text-amber-400"   />
-          <StatCard label="Overdue alerts"   value="0"                            sub="No action needed"   icon={AlertCircle}  trend={-100} color="bg-zinc-700/50 text-zinc-400"   />
-        </div>
-
-        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-widest mb-3">This Month (April 2025)</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-          <StatCard label="Total invoiced"   value={formatCurrency(monthTotal)}  sub={`${monthInvoices.length} invoices`} icon={FileText}      trend={18}  color="bg-blue-500/12 text-blue-400"       />
-          <StatCard label="Collected"        value={formatCurrency(monthPaid)}   sub="4 invoices paid"                    icon={CheckCircle2}  trend={22}  color="bg-emerald-500/12 text-emerald-400"  />
-          <StatCard label="Outstanding"      value={formatCurrency(90000)}       sub="2 invoices pending"                 icon={Clock}                    color="bg-amber-500/12 text-amber-400"      />
-          <StatCard label="GST collected"    value={formatCurrency(18960)}       sub="GST liability"                      icon={IndianRupee}              color="bg-purple-500/12 text-purple-400"    />
-        </div>
-
-        <p className="text-[11px] font-medium text-zinc-600 uppercase tracking-widest mb-3">Financial Year {fySelector} (Apr – Mar)</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard label="Total invoiced"   value={formatCurrency(fyStats.total)}   sub={`${fyStats.count} invoices`} icon={FileText}      trend={34}  color="bg-blue-500/12 text-blue-400"       />
-          <StatCard label="Revenue collected" value={formatCurrency(fyStats.paid)}   sub="72% collection rate"         icon={CheckCircle2}  trend={28}  color="bg-emerald-500/12 text-emerald-400"  />
-          <StatCard label="Outstanding"      value={formatCurrency(fyStats.pending)} sub="Awaiting payment"            icon={Clock}                    color="bg-amber-500/12 text-amber-400"      />
-          <StatCard label="Total GST"        value={formatCurrency(fyStats.gst)}     sub="GST liability (FY)"          icon={IndianRupee}              color="bg-purple-500/12 text-purple-400"    />
-        </div>
-      </div>
-
-      {/* ── Revenue trend chart ── */}
-      <div className="rounded-xl border border-white/8 bg-[#111113] p-5">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-200">Revenue Trend</h2>
-            <p className="text-xs text-zinc-500">Invoiced vs collected — FY {fySelector}</p>
-          </div>
-          <div className="flex rounded-lg border border-white/8 bg-zinc-900/40 p-0.5">
-            <button
-              onClick={() => setView("monthly")}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === "monthly" ? "bg-[#0c0c0e] text-zinc-100 border border-white/8" : "text-zinc-500 hover:text-zinc-300"}`}
-            >Monthly</button>
-            <button
-              onClick={() => setView("daily")}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === "daily" ? "bg-[#0c0c0e] text-zinc-100 border border-white/8" : "text-zinc-500 hover:text-zinc-300"}`}
-            >Daily</button>
-          </div>
-        </div>
-
-        {view === "monthly" ? (
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={monthlyData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}    />
-                </linearGradient>
-                <linearGradient id="gradPaid" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}   />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="month" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={v => `₹${v/1000}K`} tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={customTooltip} />
-              <Legend wrapperStyle={{ fontSize: 12, color: "#71717a" }} />
-              <Area type="monotone" dataKey="total" name="Invoiced" stroke="#10b981" strokeWidth={2} fill="url(#gradTotal)" />
-              <Area type="monotone" dataKey="paid"  name="Collected" stroke="#3b82f6" strokeWidth={2} fill="url(#gradPaid)"  />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={dailyData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis dataKey="day" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={v => `₹${v/1000}K`} tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip content={customTooltip} />
-              <Bar dataKey="amount" name="Invoiced" fill="#10b981" radius={[3, 3, 0, 0]} opacity={0.8} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-
-      {/* ── Bottom row: pie + bar + table ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Status donut */}
-        <div className="rounded-xl border border-white/8 bg-[#111113] p-5">
-          <h2 className="text-sm font-semibold text-zinc-200 mb-1">Status Breakdown</h2>
-          <p className="text-xs text-zinc-500 mb-4">FY {fySelector}</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={statusPie} cx="50%" cy="50%" innerRadius={52} outerRadius={72}
-                   dataKey="value" paddingAngle={3}>
-                {statusPie.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} opacity={entry.value === 0 ? 0.2 : 1} />
-                ))}
-              </Pie>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-2 mt-2">
-            {statusPie.map(s => (
-              <div key={s.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="text-xs text-zinc-400">{s.name}</span>
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div className="min-w-0 space-y-5">
+          <Panel title="Billed and received by month">
+            <div className="flex h-44 items-end gap-1.5 sm:gap-3" role="img" aria-label="Monthly billed and received amounts">
+              {months.map((m) => (
+                <div key={m.key} className="flex h-full flex-1 flex-col justify-end" title={`${m.label}: billed ${inr(m.billed)}, received ${inr(m.received)}`}>
+                  <div className="flex flex-1 items-end justify-center gap-0.5">
+                    <div className="w-1/2 max-w-3 rounded-t-sm bg-zinc-600" style={{ height: `${(m.billed / max) * 100}%` }} />
+                    <div className="w-1/2 max-w-3 rounded-t-sm bg-emerald-500" style={{ height: `${(m.received / max) * 100}%` }} />
+                  </div>
+                  <span className={`mt-1.5 text-center text-[10px] ${m.future ? "text-zinc-700" : "text-zinc-500"}`}>{m.label}</span>
                 </div>
-                <span className="text-xs font-medium text-zinc-300">{formatCurrency(s.value)}</span>
-              </div>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-4 text-[11px] text-zinc-500">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-zinc-600" />Billed</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-emerald-500" />Received</span>
+            </div>
+          </Panel>
+
+          <Panel title="GST by month" sub="Taxable value and tax on invoices issued, for GSTR-1 and GSTR-3B" bodyClass="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-[11px] uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-2.5 text-left font-medium">Month</th><th className="px-3 py-2.5 text-right font-medium">Taxable</th>
+                    <th className="px-3 py-2.5 text-right font-medium">CGST</th><th className="px-3 py-2.5 text-right font-medium">SGST</th><th className="px-5 py-2.5 text-right font-medium">IGST</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/70 tabular-nums">
+                  {months.filter((m) => m.count).map((m) => (
+                    <tr key={m.key}>
+                      <td className="px-5 py-2 text-zinc-300">{m.label} {m.key.slice(0, 4)}</td>
+                      <td className="px-3 py-2 text-right text-zinc-300">{inr(m.taxable)}</td>
+                      <td className="px-3 py-2 text-right text-zinc-400">{inr(m.cgst)}</td>
+                      <td className="px-3 py-2 text-right text-zinc-400">{inr(m.sgst)}</td>
+                      <td className="px-5 py-2 text-right text-zinc-400">{inr(m.igst)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        </div>
+
+        <Panel title="Top clients this year">
+          <ul className="space-y-3">
+            {top.map(([id, total]) => (
+              <li key={id}>
+                <div className="flex justify-between gap-2 text-sm"><span className="truncate text-zinc-200">{name.get(id)}</span><span className="tabular-nums text-zinc-400">{inr(total)}</span></div>
+                <div className="mt-1 h-1 rounded-full bg-zinc-800"><div className="h-1 rounded-full bg-emerald-500/70" style={{ width: `${(total / top[0][1]) * 100}%` }} /></div>
+              </li>
             ))}
-          </div>
-        </div>
-
-        {/* Top clients bar */}
-        <div className="rounded-xl border border-white/8 bg-[#111113] p-5 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-zinc-200 mb-1">Top Clients by Revenue</h2>
-          <p className="text-xs text-zinc-500 mb-4">Paid invoices · FY {fySelector}</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={topClients} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-              <XAxis type="number" tickFormatter={v => `₹${v/1000}K`} tick={{ fill: "#71717a", fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" tick={{ fill: "#a1a1aa", fontSize: 11 }} axisLine={false} tickLine={false} width={110} />
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              <Tooltip formatter={(v: any) => formatCurrency(Number(v))} />
-              <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[0, 4, 4, 0]} opacity={0.85} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ── Monthly invoice statement ── */}
-      <div className="rounded-xl border border-white/8 bg-[#111113]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/7">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-200">April 2025 — Invoice Statement</h2>
-            <p className="text-xs text-zinc-500">{monthInvoices.length} invoices · {formatCurrency(monthTotal)} total</p>
-          </div>
-          <Button variant="outline" size="sm">
-            <Download size={13} /> Download PDF
-          </Button>
-        </div>
-
-        {/* Statement header row */}
-        <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-5 py-2.5 border-b border-white/5 text-[11px] font-medium text-zinc-600 uppercase tracking-wide">
-          <span>#</span><span>Client</span><span>Date</span><span>Status</span><span>Amount</span>
-        </div>
-
-        {monthInvoices.map((inv, i) => (
-          <div key={inv.number} className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-5 py-3 items-center border-b border-white/5 hover:bg-white/2 transition-colors last:border-0">
-            <span className="text-xs text-zinc-600 w-6">{i + 1}</span>
-            <div>
-              <p className="text-sm font-medium text-zinc-200">{inv.client}</p>
-              <p className="text-xs text-zinc-600">{inv.number}</p>
-            </div>
-            <span className="text-xs text-zinc-500">{inv.date}</span>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border ${badgeColor[inv.status]}`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80 inline-block" />
-              {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
-            </span>
-            <span className="text-sm font-semibold text-zinc-200 tabular-nums">{formatCurrency(inv.amount)}</span>
-          </div>
-        ))}
-
-        {/* Statement totals */}
-        <div className="px-5 py-4 border-t border-white/7 flex justify-end gap-8">
-          <div className="text-right">
-            <p className="text-xs text-zinc-500 mb-0.5">Total Invoiced</p>
-            <p className="text-base font-semibold text-zinc-100">{formatCurrency(monthTotal)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-zinc-500 mb-0.5">Collected</p>
-            <p className="text-base font-semibold text-emerald-400">{formatCurrency(monthPaid)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-zinc-500 mb-0.5">Outstanding</p>
-            <p className="text-base font-semibold text-amber-400">{formatCurrency(monthTotal - monthPaid)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── GST Summary (FY) ── */}
-      <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/4 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-emerald-300">GST Summary — FY {fySelector}</h2>
-            <p className="text-xs text-zinc-500">For your CA / tax filing</p>
-          </div>
-          <Button variant="outline" size="sm" className="border-emerald-500/25 text-emerald-400 hover:border-emerald-500/40">
-            <Download size={13} /> GSTR-1 Export
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "Taxable Turnover",  value: formatCurrency(fyStats.total - fyStats.gst) },
-            { label: "Total GST Collected", value: formatCurrency(fyStats.gst) },
-            { label: "CGST (est.)",       value: formatCurrency(fyStats.gst / 2) },
-            { label: "SGST (est.)",       value: formatCurrency(fyStats.gst / 2) },
-          ].map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 p-4">
-              <p className="text-xs text-emerald-600 mb-1">{label}</p>
-              <p className="text-base font-semibold text-emerald-300">{value}</p>
-            </div>
-          ))}
-        </div>
+            {!top.length && <li className="text-sm text-zinc-500">No invoices this year yet.</li>}
+          </ul>
+        </Panel>
       </div>
     </div>
   );

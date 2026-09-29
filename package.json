@@ -1,12 +1,13 @@
 {
-  "name": "invoicesnap-tmp",
-  "version": "0.1.0",
+  "name": "invoicesnap",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -31,12 +32,10 @@
     "next-themes": "^0.4.6",
     "pocketbase": "^0.26.9",
     "qrcode.react": "^4.2.0",
-    "razorpay": "^2.9.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.74.0",
     "recharts": "^3.8.1",
-    "resend": "^6.12.2",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.4.1"
@@ -48,6 +47,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "postcss": "^8.5.6",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

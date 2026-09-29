@@ -1,133 +1,69 @@
 import Link from "next/link";
-import { ArrowRight, Code2, Zap, Check, Briefcase } from "lucide-react";
-import { Logo } from "@/components/logo";
+import type { Metadata } from "next";
+import { ArrowRight, Code2, MessageCircle } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
+import { LaunchDemoButton } from "@/components/demo/launch-button";
 
-const TECH_STEPS = [
-  "Next.js 16 App Router architecture",
-  "PocketBase data model & auth",
-  "PDF generation with PDFKit",
-  "UPI QR payment flow — no gateway",
-  "WhatsApp Business Cloud API",
-  "Live API walkthrough",
+export const metadata: Metadata = { title: "Demo" };
+
+const LIVE_POINTS = [
+  "Your own studio account with 14 clients and a year of invoices",
+  "Write an invoice as a one-line message and send it",
+  "Pay it as the client on the phone beside the app",
+  "See who is likely to pay late, and send a reminder",
+  "Fast-forward a week and check the predictions",
+  "Keep the account when you're done",
 ];
 
-const PRODUCT_STEPS = [
-  "Dashboard overview & key metrics",
-  "Create a GST invoice in 2 minutes",
-  "One-tap WhatsApp send with PDF",
-  "UPI payment — customer taps I've Paid",
-  "Track paid / sent / overdue",
-  "Client directory & auto-fill",
+const BUILD_POINTS = [
+  "Next.js, TypeScript and PocketBase",
+  "Invoice drafting where every number is checked against the message",
+  "Payment-date model, backtested on past invoices",
+  "Late-payment risk trained per business",
+  "Cash-flow forecast from 500 simulated futures",
+  "Per-visitor demo sandboxes with automatic cleanup",
 ];
 
-export default function DemoLandingPage() {
+export default function DemoLanding() {
   return (
-    <div className="min-h-screen bg-[#09090b] flex flex-col">
-      {/* Nav */}
-      <nav className="sticky top-0 z-10 border-b border-white/7 bg-[#09090b]/90 backdrop-blur-md px-6 h-12 flex items-center justify-between">
-        <a href="https://invoicesnap-saiworks.nncs.in/auth" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-          ← Sign in
-        </a>
-        <div className="flex items-center gap-3">
-          <a href="https://saiworks.nncs.in" target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-            saiworks.nncs.in ↗
-          </a>
-          <a href="https://invoicesnap-saiworks.nncs.in/auth?tab=signup" className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">
-            Get started
-          </a>
-        </div>
+    <div className="flex min-h-screen flex-col bg-zinc-950">
+      <nav className="flex h-14 items-center justify-between border-b border-zinc-800 px-5 sm:px-6">
+        <Link href="/" aria-label="InvoiceSnap home"><Logo /></Link>
+        <Link href="/auth" className="text-sm text-zinc-400 hover:text-zinc-200">Sign in</Link>
       </nav>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-16">
-      {/* Logo */}
-      <div className="mb-10">
-        <Logo />
-      </div>
-
-      {/* Heading */}
-      <div className="text-center mb-12">
-        <p className="text-xs uppercase tracking-widest mb-3 text-emerald-400/70 font-medium">
-          Interactive Demo
-        </p>
-        <h1 className="font-display text-4xl sm:text-5xl font-semibold text-zinc-50 mb-4">
-          See InvoiceSnap in action
-        </h1>
-        <p className="text-zinc-400 max-w-md mx-auto text-sm leading-relaxed">
-          Two guided walkthroughs — pick what fits. No login, no credit card, no setup.
-        </p>
-      </div>
-
-      {/* Cards */}
-      <div className="grid sm:grid-cols-2 gap-5 w-full max-w-3xl">
-
-        {/* Product Tour */}
-        <div className="flex flex-col rounded-2xl p-7 bg-[#111113] border border-white/8 hover:border-emerald-500/30 transition-colors group">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 bg-emerald-500/10 border border-emerald-500/20">
-            <Briefcase className="h-5 w-5 text-emerald-400" />
-          </div>
-
-          <h2 className="font-display text-xl font-semibold text-zinc-100 mb-1">
-            Product Tour
-          </h2>
-          <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
-            For freelancers & photographers considering InvoiceSnap for their business
-          </p>
-
-          <ul className="space-y-2 mb-8 flex-1">
-            {PRODUCT_STEPS.map((s, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-xs text-zinc-400">
-                <Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500/60" />
-                {s}
-              </li>
-            ))}
-          </ul>
-
-          <Link
-            href="/demo/product"
-            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all bg-emerald-600 hover:bg-emerald-500 text-white"
-          >
-            Start Product Tour
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+      <main className="flex flex-1 flex-col items-center px-5 py-14 sm:px-6 sm:py-20">
+        <div className="mb-12 max-w-xl text-center">
+          <h1 className="font-display text-4xl font-semibold leading-tight text-zinc-50 sm:text-5xl">See InvoiceSnap in use</h1>
+          <p className="mt-4 text-base leading-relaxed text-zinc-400">Run the real product on an account of your own, or read how it&apos;s built. No sign-up for either.</p>
         </div>
 
-        {/* Technical Demo */}
-        <div className="flex flex-col rounded-2xl p-7 bg-[#111113] border border-white/8 hover:border-blue-500/30 transition-colors group">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 bg-blue-500/10 border border-blue-500/20">
-            <Code2 className="h-5 w-5 text-blue-400" />
-          </div>
+        <div className="grid w-full max-w-3xl gap-5 sm:grid-cols-2">
+          <section className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/60 p-7">
+            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-900 bg-emerald-950"><MessageCircle className="h-5 w-5 text-emerald-400" /></div>
+            <h2 className="font-display text-xl font-semibold text-zinc-100">Live demo</h2>
+            <p className="mb-6 mt-1.5 text-sm leading-relaxed text-zinc-400">The real app and a client&apos;s WhatsApp side by side, on a studio that&apos;s yours for 45 minutes.</p>
+            <ul className="mb-8 flex-1 space-y-2.5">
+              {LIVE_POINTS.map((s) => <li key={s} className="flex items-start gap-2.5 text-sm text-zinc-300"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-emerald-500" />{s}</li>)}
+            </ul>
+            <LaunchDemoButton />
+            <p className="mt-3 h-4 text-center text-xs leading-4 text-zinc-500">Deleted after 45 minutes unless you keep it</p>
+          </section>
 
-          <h2 className="font-display text-xl font-semibold text-zinc-100 mb-1">
-            Technical Deep Dive
-          </h2>
-          <p className="text-sm text-zinc-500 mb-6 leading-relaxed">
-            For developers & code reviewers evaluating the tech stack and architecture
-          </p>
-
-          <ul className="space-y-2 mb-8 flex-1">
-            {TECH_STEPS.map((s, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-xs text-zinc-400">
-                <Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-500/60" />
-                {s}
-              </li>
-            ))}
-          </ul>
-
-          <Link
-            href="/demo/technical"
-            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold transition-all bg-blue-600 hover:bg-blue-500 text-white"
-          >
-            Start Tech Demo
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <section className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/60 p-7">
+            <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-800"><Code2 className="h-5 w-5 text-zinc-300" /></div>
+            <h2 className="font-display text-xl font-semibold text-zinc-100">How it&apos;s built</h2>
+            <p className="mb-6 mt-1.5 text-sm leading-relaxed text-zinc-400">For developers and reviewers: the architecture, the models and how they were tested.</p>
+            <ul className="mb-8 flex-1 space-y-2.5">
+              {BUILD_POINTS.map((s) => <li key={s} className="flex items-start gap-2.5 text-sm text-zinc-300"><span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-zinc-500" />{s}</li>)}
+            </ul>
+            <Link href="/demo/technical" className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-100 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white">
+              Read the write-up <ArrowRight className="h-4 w-4" />
+            </Link>
+            <p className="mt-3 h-4 text-center text-xs leading-4 text-zinc-500">About a 6 minute read</p>
+          </section>
         </div>
-      </div>
-
-      <p className="text-xs mt-8 text-zinc-700 flex items-center gap-1.5">
-        <Zap className="h-3 w-3" />
-        Fully interactive · No account required · Pre-seeded data
-      </p>
-      </div>
+      </main>
     </div>
   );
 }
